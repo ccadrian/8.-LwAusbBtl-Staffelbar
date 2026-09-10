@@ -32,6 +32,14 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 
 ## Einrichtung
 
+> **Bereits erledigt.** Firebase-Projekt `lwausbbtl-39ae4`, Firestore (eur3) und
+> die Zugriffsregeln stehen, die Konfiguration ist in `index.html` eingetragen
+> und GitHub Pages ist aktiv:
+> **<https://ccadrian.github.io/8.-LwAusbBtl-Staffelbar/>**
+>
+> Die Schritte unten braucht nur, wer das Tool für eine *weitere* Bar in einem
+> eigenen Firebase-Projekt aufsetzen will.
+
 ### Der schnelle Weg: ein Befehl
 
 Auf dem eigenen Rechner im Projektordner:

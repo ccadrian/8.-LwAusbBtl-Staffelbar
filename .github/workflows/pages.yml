@@ -22,12 +22,31 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Pages einrichten (aktiviert Pages beim ersten Lauf automatisch)
+
+      # Versucht, Pages selbst zu aktivieren. Das gelingt nur, wenn der
+      # Workflow-Token dafür Rechte hat - sonst greift der Hinweis unten.
+      - id: pages
+        continue-on-error: true
         uses: actions/configure-pages@v5
         with:
           enablement: true
+
+      - name: Hinweis, falls Pages noch nicht aktiviert ist
+        if: steps.pages.outcome == 'failure'
+        run: |
+          echo "::error title=GitHub Pages ist noch nicht aktiviert::Einmalig einschalten, dann läuft alles Weitere von selbst."
+          echo ""
+          echo "  Repository -> Settings -> Pages -> Build and deployment"
+          echo "  Source: GitHub Actions   auswählen"
+          echo ""
+          echo "Danach diesen Workflow erneut starten (Actions -> Deploy to GitHub Pages -> Run workflow)."
+          echo "Der Token dieses Workflows darf Pages nicht selbst anlegen; das ist eine"
+          echo "Einschränkung von GitHub, kein Fehler in diesem Repository."
+          exit 1
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
+
       - id: deployment
         uses: actions/deploy-pages@v4

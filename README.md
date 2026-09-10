@@ -55,13 +55,18 @@ Voraussetzung ist Node 18+ und ein eingerichtetes `git`. Sonst nichts –
 
 ### GitHub Pages
 
-Darum kümmert sich `.github/workflows/pages.yml` von selbst: Beim ersten Push
-aktiviert der Workflow Pages (`enablement: true`) und veröffentlicht die Seite.
-Die fertige Adresse steht danach unter **Actions → Deploy to GitHub Pages**
-sowie unter **Settings → Pages**.
+**Einmalig nötig** (zwei Klicks, danach nie wieder):
 
-Falls die Organisation das automatische Aktivieren unterbindet, einmal von Hand:
-**Settings → Pages → Source: GitHub Actions**, danach läuft es wieder allein.
+> Repository → **Settings** → **Pages** → *Build and deployment* → **Source: GitHub Actions**
+
+Den Token, mit dem der Workflow läuft, lässt GitHub Pages nicht selbst anlegen –
+diesen einen Schalter muss ein Repository-Administrator umlegen. Danach
+veröffentlicht `.github/workflows/pages.yml` die Seite bei jedem Push von allein.
+
+Läuft der Workflow, bevor der Schalter umgelegt ist, bricht er mit genau diesem
+Hinweis ab. Danach einfach neu starten: **Actions → Deploy to GitHub Pages →
+Run workflow**. Die fertige Adresse steht anschließend im Lauf-Protokoll und
+unter Settings → Pages.
 
 ### Von Hand, falls gewünscht
 

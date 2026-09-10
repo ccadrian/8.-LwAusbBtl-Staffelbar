@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// Ohne Login: genau ein Datenraum ist offen, alles andere gesperrt.
+// Wer die Projekt-ID kennt, kann in bars/staffelbar/... lesen und schreiben.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /bars/staffelbar/{coll}/{doc} {
+      allow read, write: if true;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

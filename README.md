@@ -6,6 +6,14 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 
 **Alles steckt in `index.html`** – kein Build, keine Abhängigkeiten, kein Server.
 
+| Datei | Zweck |
+|---|---|
+| `index.html` | das komplette Tool |
+| `setup.mjs` | richtet Firebase automatisch ein (ein Befehl) |
+| `firestore.rules` | Zugriffsregeln |
+| `firebase.json` | Projektdatei für das Deployment der Regeln |
+| `.github/workflows/pages.yml` | veröffentlicht die Seite bei jedem Push |
+
 ---
 
 ## Was das Tool kann
@@ -22,64 +30,57 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 
 ---
 
-## Einrichtung in 3 Schritten
+## Einrichtung
 
-### 1. Firebase-Projekt anlegen
+### Der schnelle Weg: ein Befehl
 
-1. [console.firebase.google.com](https://console.firebase.google.com) → **Projekt hinzufügen**
-2. **Firestore-Datenbank** → *Datenbank erstellen* → Modus egal, die Regeln kommen in Schritt 2
-3. **Projektübersicht → Web-App hinzufügen** (`</>`-Symbol), Namen vergeben
-4. Firebase zeigt einen `firebaseConfig`-Block – diese Werte werden gleich gebraucht
+Auf dem eigenen Rechner im Projektordner:
 
-### 2. Zugriffsregeln setzen
-
-Das Tool arbeitet **ohne Login**. Damit das funktioniert, muss Firestore
-Schreibzugriff auf genau diesen Datenraum erlauben – in der Firebase-Konsole
-unter *Firestore → Regeln*:
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /bars/staffelbar/{coll}/{doc} {
-      allow read, write: if true;
-    }
-  }
-}
+```bash
+node setup.mjs
 ```
 
-> **Wichtig:** Diese Regeln erlauben jedem, der die Projekt-ID kennt, Lesen und
-> Schreiben in diesem Pfad – das ist der Preis für „kein Login“. Nur `bars/staffelbar/…`
-> ist freigegeben, der Rest des Projekts bleibt gesperrt. Wer das enger fassen
-> will, nutzt Firebase App Check oder anonyme Anmeldung. Die exakten Regeln für
-> die eigene Bar-ID zeigt das Tool unter **Mehr → Datenbank**.
+Das Skript erledigt alles Weitere selbst:
 
-### 3. Konfiguration eintragen
+1. Google-Anmeldung (öffnet einmal den Browser – der einzige Handgriff)
+2. Firebase-Projekt anlegen oder ein vorhandenes auswählen
+3. Firestore-Datenbank erstellen
+4. Web-App registrieren und die Konfiguration abholen
+5. Konfiguration in `index.html` eintragen
+6. Zugriffsregeln aus `firestore.rules` veröffentlichen
+7. Änderung committen und pushen
 
-**Variante A – fest in die Datei** (empfohlen, dann läuft es auf jedem Gerät sofort):
-In `index.html` ganz oben den Block `FIREBASE_CONFIG` ausfüllen:
+Voraussetzung ist Node 18+ und ein eingerichtetes `git`. Sonst nichts –
+`firebase-tools` wird über `npx` geholt und muss nicht installiert werden.
 
-```js
-const FIREBASE_CONFIG = {
-  apiKey: "AIza…",
-  authDomain: "meinprojekt.firebaseapp.com",
-  projectId: "meinprojekt",
-  storageBucket: "meinprojekt.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abc123"
-};
-```
+### GitHub Pages
 
-**Variante B – im Tool**: Tab **Mehr → Datenbank**, den `firebaseConfig`-Block
-einfügen und speichern. Gilt dann nur für dieses eine Gerät (praktisch zum Testen).
+Darum kümmert sich `.github/workflows/pages.yml` von selbst: Beim ersten Push
+aktiviert der Workflow Pages (`enablement: true`) und veröffentlicht die Seite.
+Die fertige Adresse steht danach unter **Actions → Deploy to GitHub Pages**
+sowie unter **Settings → Pages**.
 
-### GitHub Pages aktivieren
+Falls die Organisation das automatische Aktivieren unterbindet, einmal von Hand:
+**Settings → Pages → Source: GitHub Actions**, danach läuft es wieder allein.
 
-Repository → **Settings → Pages → Source: Deploy from a branch** → Branch `main`,
-Ordner `/ (root)`. Nach ein bis zwei Minuten liegt das Tool unter
-`https://<benutzername>.github.io/<repository>/`.
+### Von Hand, falls gewünscht
 
-Diese URL im Tool unter **Mehr** als QR-Code ausdrucken und an den Tresen hängen.
+<details>
+<summary>Aufklappen</summary>
+
+1. [console.firebase.google.com](https://console.firebase.google.com) → Projekt anlegen
+2. **Firestore-Datenbank** → Datenbank erstellen
+3. **Web-App hinzufügen** (`</>`), `firebaseConfig` kopieren
+4. Werte oben in `index.html` in den Block `FIREBASE_CONFIG` eintragen –
+   oder im Tool unter **Mehr → Datenbank** einfügen (gilt dann nur für dieses Gerät)
+5. Regeln aus `firestore.rules` in der Konsole unter *Firestore → Regeln* einfügen
+
+</details>
+
+> **Zur Sicherheit:** Ohne Login müssen die Regeln offen sein – wer die
+> Projekt-ID kennt, kann in `bars/staffelbar/…` lesen und schreiben. Alles
+> außerhalb dieses Pfads ist gesperrt. Wer es enger braucht, nutzt Firebase
+> App Check oder anonyme Anmeldung.
 
 ---
 
@@ -126,6 +127,18 @@ liegt (Standard 7 Tage) oder der Mindestbestand unterschritten ist.
   Jeder Datenraum braucht eine eigene Regel-Zeile (siehe oben).
 - **Backup**: Tab **Mehr → Export**. Das JSON lässt sich dort auch wieder
   einspielen.
+
+## Design
+
+Monochrom – schwarz, weiß, Grauabstufungen, keine Akzentfarbe. Hairline-Rahmen,
+Systemschrift, viel Weißraum. Hell und Dunkel folgen automatisch der
+Systemeinstellung des Telefons, nachts am Tresen wird die Oberfläche also von
+selbst schwarz.
+
+Dringlichkeit kommt ohne Farbe aus: Ein Getränk in kritischem Zustand bekommt
+einen gefüllten Punkt und eine kräftige Kontur, eine Warnung einen hohlen Punkt
+und eine Haarlinie – dazu immer Klartext („unter Mindestbestand 2“). Das bleibt
+auch bei Farbenblindheit, im Sonnenlicht und im Ausdruck lesbar.
 
 ## Technisch
 

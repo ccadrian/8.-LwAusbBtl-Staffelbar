@@ -25,7 +25,7 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 | **Kontrolle beim Tippen** | Schon während der Eingabe steht darunter, was die Zahl bedeutet: „das wären 12 Flaschen verbraucht in 7 Tagen · Ø 1,7/Tag“. Steigt der Bestand oder liegt der Verbrauch um ein Vielfaches über dem Schnitt, wird deutlich gewarnt – ein Vertipper fällt auf, solange er noch zu ändern ist. |
 | **Unterbrechbar** | Eine angefangene Runde übersteht das Schließen der Seite: Position und erfasste Mengen sind beim nächsten Öffnen wieder da (bis zu zwei Tage). |
 | **Zurücknehmen** | Eine gerade gespeicherte Zählung lässt sich rückgängig machen. Die Mengen bleiben dabei als ungespeicherte Zählung stehen, sodass sich ein Fehler korrigieren lässt, ohne noch einmal durch die ganze Bar zu laufen. |
-| **Kästen** | Pro Getränk steht hinterlegt, wie viele Flaschen in einen Kasten gehen (1 Kasten = 20 Flaschen). Gezählt wird dann in **Kästen + einzelne Flaschen**, und das Tool rechnet von selbst um: 22 gezählte Flaschen sind 1 Kasten + 2. Gespeichert und gerechnet wird immer in Einzelflaschen. |
+| **Kästen** | Es gilt überall **1 Kasten = 20 Flaschen**, ohne dass man etwas einträgt. Gezählt wird in **Kästen + einzelne Flaschen**, und das Tool rechnet von selbst um: 22 Flaschen sind 1 Kasten + 2, 44 sind 2 Kästen + 4. Abweichungen (Cola-Kiste mit 12) stehen am Getränk, eine 0 dort heißt „gibt es nur einzeln“. Gespeichert und gerechnet wird immer in Einzelflaschen. |
 | **Zusammenfassung** | Direkt nach dem Speichern: was sich verändert hat, was verbraucht wurde, wo der Bestand gestiegen ist – ohne selbst zu rechnen. |
 | **Einkaufsliste** | Füllt sich von selbst aus Warnschwelle und Vorhersage, mit Mengenvorschlag in vollen Kästen. Die Menge lässt sich direkt in der Zeile ändern – **ein Schritt ist ein Kasten**, die Zahl selbst öffnet den Zahlenblock für krumme Mengen. Eigene Positionen (auch freie Notizen wie „Eis“) lassen sich ergänzen. Abhaken bucht den Kauf als Nachkauf – die Position verschwindet dadurch von allein. |
 | **Nachkauf** | Jeden Einkauf separat erfassen, damit der Verbrauch korrekt bleibt (ein Nachkauf ist kein Verbrauch). Geliefert wird nichts – die Kästen werden selbst vom Getränkemarkt geholt und hier eingebucht. |
@@ -109,6 +109,11 @@ Die Daten liegen unter `bars/<bar-id>/…` in vier Sammlungen: `drinks`
 ---
 
 ## Kästen und Flaschen
+
+Die Hausregel steht als `DEFAULT_PACK_SIZE` oben in `index.html`: **1 Kasten =
+20 Flaschen**, gültig für jedes Getränk, bei dem nichts anderes hinterlegt ist.
+Wer eine andere Gebindegröße braucht, trägt sie am Getränk ein; eine 0 bedeutet
+dort „dieses Getränk gibt es nur einzeln“.
 
 Eine Regel für alles: **gerechnet und gespeichert wird immer in Einzelflaschen**.
 Kästen sind reine Ein- und Ausgabe. Beim Zählen lassen sich Kästen und einzelne

@@ -566,6 +566,12 @@ const FIREBASE_CONFIG = {
    Mehrere Bars im selben Firebase-Projekt: ?bar=zweite-bar an die URL hängen. */
 const DEFAULT_BAR_ID = "staffelbar";
 
+/* Hausregel: 1 Kasten = 20 Flaschen. Gilt für jedes Getränk, bei dem nichts
+   anderes eingetragen ist – 22 gezählte Flaschen sind damit überall
+   automatisch 1 Kasten + 2. Abweichungen (Cola-Kiste mit 12) stehen am
+   Getränk selbst, und eine 0 dort heißt "gibt es nur einzeln". */
+const DEFAULT_PACK_SIZE = 20;
+
 const APP_VERSION = "1.1";
 const SDK = "https://www.gstatic.com/firebasejs/10.13.2/";
 
@@ -1031,8 +1037,14 @@ function qtyUnit(n, unit){
   return fmt(n) + " " + u;
 }
 
-/* Flaschen je Kasten; 0 = das Getränk wird nur einzeln geführt */
-function packSize(d){ const n = num(d && d.packSize, 0); return n > 1 ? Math.round(n) : 0; }
+/* Flaschen je Kasten. Ohne eigene Angabe gilt die Hausregel; eine
+   ausdrücklich eingetragene 0 (oder 1) heißt: nur einzeln. */
+function packSize(d){
+  const raw = d ? d.packSize : undefined;
+  if (raw === undefined || raw === null || raw === "") return DEFAULT_PACK_SIZE;
+  const n = Math.round(num(raw, 0));
+  return n > 1 ? n : 0;
+}
 function packOne(d){ return (d && d.packName) ? d.packName : "Kasten"; }
 function packMany(d){ const o = packOne(d); return PACK_PLURAL[o] || o; }
 function packWord(n, d){ return n === 1 ? packOne(d) : packMany(d); }
@@ -2216,7 +2228,7 @@ function drinkForm(d){
     '<div class="row" style="gap:10px;align-items:flex-start">' +
       '<label class="fld" style="flex:1.25;min-width:0"><span>1 Kasten sind … Flaschen</span>' +
         '<input type="number" id="fPackSize" inputmode="numeric" step="1" min="0" value="' +
-        esc(d ? (packSize(d) || "") : "") + '" placeholder="z. B. 20"></label>' +
+        esc(d ? packSize(d) : DEFAULT_PACK_SIZE) + '" placeholder="' + DEFAULT_PACK_SIZE + '"></label>' +
       '<label class="fld" style="flex:1;min-width:0"><span>heißt hier</span>' +
         '<input type="text" id="fPackName" list="packList" value="' + esc(d ? packOne(d) : "Kasten") + '" placeholder="Kasten"></label>' +
     '</div>' +
@@ -2240,7 +2252,7 @@ function drinkForm(d){
         hint.textContent = ps > 1
           ? "1 " + pn + " = " + qtyUnit(ps, un) + ". Gezählte " + un + " werden automatisch umgerechnet: " +
             qtyUnit(ps + 2, un) + " sind 1 " + pn + " + 2."
-          : "Leer lassen, wenn es dieses Getränk nur einzeln gibt.";
+          : "0 eintragen heißt: dieses Getränk gibt es nur einzeln, ohne " + pn + ".";
       };
       ["fPackSize", "fPackName", "fUnit"].forEach(id =>
         $("#" + id, el).addEventListener("input", syncHint));

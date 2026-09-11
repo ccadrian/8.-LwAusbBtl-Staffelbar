@@ -503,10 +503,15 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
 
     <div class="section-title">Einstellungen</div>
     <div class="card">
-      <label class="fld"><span>Warnschwelle: Reichweite in Tagen</span>
-        <input type="number" id="cfgWarnDays" min="1" max="90" step="1">
+      <label class="fld"><span>Achtung, wenn nur noch … Kästen da sind</span>
+        <input type="number" id="cfgMinPacks" min="0" max="20" step="1" inputmode="numeric">
       </label>
-      <div class="small faint">Getränke, deren Bestand laut Hochrechnung nur noch für weniger als diese Anzahl Tage reicht, erscheinen oben in der Erinnerung und auf der Einkaufsliste.</div>
+      <div class="small faint" id="minPacksHint"></div>
+      <hr class="sep">
+      <label class="fld"><span>Achtung, wenn der Vorrat nur noch … Tage reicht</span>
+        <input type="number" id="cfgWarnDays" min="1" max="90" step="1" inputmode="numeric">
+      </label>
+      <div class="small faint">Greift zusätzlich, sobald genug Zählungen für eine Hochrechnung da sind – dann meldet sich ein Getränk schon, bevor die Kästen-Schwelle erreicht ist.</div>
       <hr class="sep">
       <label class="sw"><input type="checkbox" id="cfgPacks">
         <span>Mengen in Kästen anzeigen<br><span class="small faint">z.&nbsp;B. „1 Kasten + 2 Flaschen“ statt „22 Flaschen“. Gerechnet wird immer in Einzelflaschen.</span></span>
@@ -645,6 +650,9 @@ function loadSettings(){
     fb: s.fb && typeof s.fb === "object" ? s.fb : null,
     barId: (urlBar || s.barId || DEFAULT_BAR_ID).trim().replace(/[^\w\-]/g, "-") || DEFAULT_BAR_ID,
     warnDays: num(s.warnDays, 7) || 7,
+    /* Achtung, sobald von einer Sorte nur noch so viele Kästen da sind.
+       0 schaltet die Regel ab. */
+    minPacks: s.minPacks === undefined ? 1 : Math.max(0, Math.round(num(s.minPacks, 1))),
     /* Anzeige in Kästen. Gerechnet wird immer in Einzelflaschen. */
     showPacks: s.showPacks === undefined ? true : !!s.showPacks
   };
@@ -652,9 +660,32 @@ function loadSettings(){
 function saveSettings(){
   try {
     localStorage.setItem(LS_CFG, JSON.stringify({ fb: settings.fb, barId: settings.barId,
-      warnDays: settings.warnDays, showPacks: settings.showPacks }));
+      warnDays: settings.warnDays, minPacks: settings.minPacks, showPacks: settings.showPacks }));
   } catch(_) {}
 }
+/* Warnschwellen liegen in bars/<bar>/settings/thresholds, damit alle
+   Telefone dieselbe Erinnerung sehen. Ohne Firestore bleibt es beim
+   lokalen Wert. */
+const THRESHOLD_DOC = "thresholds";
+function applyBarSettings(){
+  const c = store.config;
+  if (!c) return;
+  if (c.warnDays != null && Number.isFinite(Number(c.warnDays)))
+    settings.warnDays = Math.min(90, Math.max(1, Math.round(num(c.warnDays, 7)) || 7));
+  if (c.minPacks != null && Number.isFinite(Number(c.minPacks)))
+    settings.minPacks = Math.min(20, Math.max(0, Math.round(num(c.minPacks, 1))));
+  saveSettings();
+}
+async function saveBarSettings(){
+  saveSettings();
+  if (store.mode !== "firebase") return;
+  try {
+    await store.set("settings", THRESHOLD_DOC, {
+      warnDays: settings.warnDays, minPacks: settings.minPacks, at: new Date().toISOString()
+    });
+  } catch(err){ console.error(err); toast("Schwelle konnte nicht geteilt werden"); }
+}
+
 function activeFbConfig(){
   const c = (settings.fb && settings.fb.projectId) ? settings.fb : FIREBASE_CONFIG;
   return (c && c.apiKey && c.projectId) ? c : null;
@@ -680,6 +711,9 @@ function activeFbConfig(){
      shopping  { kind, drinkId, name, qty, note, at (ISO) }
                  kind "item" = selbst auf die Liste gesetzt
                  kind "skip" = Vorschlag bis zur nächsten Zählung ausgeblendet
+     settings/thresholds { warnDays, minPacks, at }
+                 Warnschwellen. Sie gehören der Bar, nicht dem Telefon –
+                 sonst sähe jedes Gerät eine andere Erinnerung.
 
    Zählungen werden nie überschrieben – jede Zählung ist ein neues Dokument.
    --------------------------------------------------------------------- */
@@ -687,7 +721,7 @@ const store = {
   mode: "local",          // "firebase" | "local"
   status: "init",         // init | online | offline | error | local
   error: "",
-  drinks: [], counts: [], purchases: [], shopping: [],
+  drinks: [], counts: [], purchases: [], shopping: [], config: null,
   _fs: null, _db: null, _unsub: [], _listeners: [], _cache: {}, _pending: {},
 
   /* noch nicht zum Server übertragene Änderungen */
@@ -698,7 +732,7 @@ const store = {
 
   async connect(){
     this._unsub.forEach(u => { try { u(); } catch(_){} });
-    this._unsub = []; this._cache = {}; this._pending = {};
+    this._unsub = []; this._cache = {}; this._pending = {}; this.config = null;
     const cfg = activeFbConfig();
     if (!cfg){
       this.mode = "local"; this.status = "local";
@@ -764,6 +798,16 @@ const store = {
     bind("counts", "counts", "at", "desc", 4000);
     bind("purchases", "purchases", "at", "desc", 2000);
     bind("shopping", "shopping", "at", "desc", 300);
+
+    /* Warnschwellen: ein einzelnes Dokument, ohne Sortierfeld */
+    this._unsub.push(f.onSnapshot(this._col("settings"),
+      snap => {
+        const row = snap.docs.find(x => x.id === THRESHOLD_DOC);
+        this.config = row ? row.data() : null;
+        applyBarSettings();
+        this.emit();
+      },
+      err => console.error("settings", err)));
   },
 
   /* ---- Schreiboperationen ---- */
@@ -966,23 +1010,52 @@ function invalidateAnalysis(){ _analysisCache = null; }
    Reichweite. Posten ohne Vorhersage, die den Mindestbestand unterschreiten,
    stehen vor den hochgerechneten – der Unterschreitung liegt eine Zählung
    zugrunde, keine Schätzung. */
+/* Ab wann gilt ein Getränk als knapp, gemessen an der Menge?
+   Ein eigener Mindestbestand am Getränk schlägt die Hausregel; sonst greift
+   die Schwelle in Kästen aus den Einstellungen. 0 heißt: keine Mengenregel. */
+function stockFloor(d){
+  const own = num(d && d.minStock, 0);
+  if (own > 0) return { qty: own, packs: false };
+  const ps = packSize(d);
+  const n = num(settings.minPacks, 0);
+  return (ps && n > 0) ? { qty: ps * n, packs: true } : { qty: 0, packs: false };
+}
+
 function alerts(){
   const limit = settings.warnDays;
   const out = [];
   analysisAll().forEach(a => {
     if (!a.drink || a.stock == null) return;
-    const minStock = num(a.drink.minStock, 0);
-    const belowMin = minStock > 0 && a.stock <= minStock;
+    const floor = stockFloor(a.drink);
+    const belowMin = floor.qty > 0 && a.stock <= floor.qty;
     const empty = a.stock <= 0;
     const forecastWarn = a.ok && a.daysLeft != null && a.daysLeft < limit;
     if (!empty && !belowMin && !forecastWarn) return;
 
-    const crit = empty || (a.ok && a.daysLeft < limit/2) || (minStock > 0 && a.stock <= minStock/2);
+    const crit = empty || (a.ok && a.daysLeft < limit/2) || (floor.qty > 0 && a.stock <= floor.qty/2);
     const sub = [];
-    sub.push("Bestand " + qtyText(a.stock, a.drink, true));
-    if (belowMin) sub.push("unter Mindestbestand " + fmt(minStock));
+    /* Wortlaut wie am Tresen gedacht: „nur noch 1 Kasten + 2 Flaschen“ */
+    sub.push(belowMin
+      ? "nur noch " + qtyText(a.stock, a.drink, true) + " im Lager"
+      : "Bestand " + qtyText(a.stock, a.drink, true));
+    if (belowMin) sub.push("Schwelle " + qtyText(floor.qty, a.drink, true));
     if (a.ok) sub.push("Ø " + fmt(a.perDay, 2) + "/Tag");
     else if (a.lastCount) sub.push("keine Vorhersage");
+
+    /* Große Zahl rechts: Reichweite, wo es eine gibt – sonst die Menge, und
+       die in Kästen, sobald mindestens einer voll ist. */
+    let big, bigLabel;
+    if (empty){ big = "0"; bigLabel = "leer"; }
+    else if (a.ok){
+      big = a.daysLeft < 1 ? "0" : fmt(a.daysLeft, a.daysLeft < 3 ? 1 : 0);
+      bigLabel = "Tage";
+    } else {
+      const sp = settings.showPacks ? splitPack(a.stock, a.drink) : null;
+      if (sp && sp.packs > 0){
+        big = fmt(sp.packs) + (sp.rest ? "+" : "");
+        bigLabel = packWord(sp.packs, a.drink);
+      } else { big = fmt(a.stock); bigLabel = unitOf(a.drink); }
+    }
 
     out.push({
       a,
@@ -990,9 +1063,8 @@ function alerts(){
       rank: crit ? 0 : 1,
       /* ohne Hochrechnung gibt es keine Reichweite – solche Posten werden
          über ihren Füllgrad einsortiert und landen vor den geschätzten */
-      sort: empty ? -1000 : (a.ok ? a.daysLeft : -1 + (minStock > 0 ? a.stock/minStock : 0)),
-      big: empty ? "0" : (a.ok ? (a.daysLeft < 1 ? "0" : fmt(a.daysLeft, a.daysLeft < 3 ? 1 : 0)) : fmt(a.stock)),
-      bigLabel: empty ? "leer" : (a.ok ? "Tage" : unitOf(a.drink)),
+      sort: empty ? -1000 : (a.ok ? a.daysLeft : -1 + (floor.qty > 0 ? a.stock/floor.qty : 0)),
+      big: big, bigLabel: bigLabel,
       sub: sub.join(" · ")
     });
   });
@@ -1007,10 +1079,10 @@ function suggestBuy(a){
   const d = a && a.drink; if (!d) return 0;
   const ps = packSize(d);
   const stock = Math.max(0, num(a.stock));
-  const minStock = num(d.minStock, 0);
+  const floor = stockFloor(d).qty;
   let target = 0;
   if (a.ok && a.perDay > 0) target = a.perDay * settings.warnDays * 3;
-  if (minStock > 0) target = Math.max(target, minStock * 2);
+  if (floor > 0) target = Math.max(target, floor * 2);
   let need = target - stock;
   if (!(need > 0)) need = ps || 1;
   return ps ? Math.ceil(need / ps) * ps : Math.ceil(need);
@@ -1966,7 +2038,10 @@ function renderShop(){
       '<button class="b-x" data-act="drop" title="Von der Liste nehmen">&#10005;</button>' +
     '</div>';
   }).join("") : '<div class="empty">Nichts zu kaufen.<br>Getränke erscheinen hier automatisch, sobald ' +
-      'der Bestand unter den Mindestbestand fällt oder die Reichweite unter ' + settings.warnDays + ' Tage sinkt.</div>';
+      (num(settings.minPacks, 0) > 0
+        ? 'nur noch ' + qtyUnit(settings.minPacks, "Kästen").replace("1 Kästen", "1 Kasten") + ' übrig sind oder '
+        : 'der Mindestbestand unterschritten ist oder ') +
+      'die Reichweite unter ' + settings.warnDays + ' Tage sinkt.</div>';
 
   const rows = store.purchases.slice(0, 30);
   $("#buyList").innerHTML = rows.length ? rows.map(p => {
@@ -2755,8 +2830,20 @@ function renderMore(){
   catch(e){ $("#qrbox").innerHTML = '<div class="small" style="color:#09090b">QR-Code konnte nicht erzeugt werden: ' + esc(e.message) + '</div>'; }
 
   $("#cfgBar").value = settings.barId;
-  $("#cfgWarnDays").value = settings.warnDays;
+  if (document.activeElement !== $("#cfgWarnDays")) $("#cfgWarnDays").value = settings.warnDays;
+  if (document.activeElement !== $("#cfgMinPacks")) $("#cfgMinPacks").value = settings.minPacks;
   $("#cfgPacks").checked = !!settings.showPacks;
+
+  /* Im Klartext, was die Schwelle bedeutet */
+  const n = num(settings.minPacks, 0);
+  $("#minPacksHint").innerHTML = n > 0
+    ? 'Sinkt ein Getränk auf diese Menge oder darunter, steht es oben unter ' +
+      '<b>Bald nachkaufen</b> und auf der Einkaufsliste. Bei der Hausregel ' +
+      '1 Kasten = ' + DEFAULT_PACK_SIZE + ' Flaschen heißt das: Meldung ab <b>' +
+      (DEFAULT_PACK_SIZE * n) + ' Flaschen</b>; Getränke mit abweichender ' +
+      'Kastengröße entsprechend. Ein eigener Mindestbestand am Getränk geht vor.'
+    : 'Ausgeschaltet – gewarnt wird dann nur über die Reichweite in Tagen ' +
+      'und über den Mindestbestand am einzelnen Getränk.';
   if (document.activeElement !== $("#cfgFb"))
     $("#cfgFb").value = settings.fb ? JSON.stringify(settings.fb, null, 2) : "";
 
@@ -2908,6 +2995,7 @@ $("#cfgSave").addEventListener("click", async () => {
   const bar = $("#cfgBar").value.trim().replace(/[^\w\-]/g, "-");
   settings.barId = bar || DEFAULT_BAR_ID;
   settings.warnDays = Math.min(90, Math.max(1, num($("#cfgWarnDays").value, 7) || 7));
+  settings.minPacks = Math.min(20, Math.max(0, Math.round(num($("#cfgMinPacks").value, 1))));
   settings.showPacks = $("#cfgPacks").checked;
   saveSettings();
   toast("Gespeichert – verbinde…");
@@ -2918,13 +3006,21 @@ $("#cfgClear").addEventListener("click", () => {
   askConfirm("Einstellungen zurücksetzen?",
     "Firebase-Konfiguration und Bar-ID werden auf diesem Gerät gelöscht. Die Daten in Firestore bleiben erhalten.",
     "Zurücksetzen", async () => {
-      settings.fb = null; settings.barId = DEFAULT_BAR_ID; settings.warnDays = 7; settings.showPacks = true;
+      settings.fb = null; settings.barId = DEFAULT_BAR_ID; settings.warnDays = 7;
+      settings.minPacks = 1; settings.showPacks = true;
       saveSettings(); await store.connect(); renderAll(); toast("Zurückgesetzt");
     });
 });
-$("#cfgWarnDays").addEventListener("change", () => {
+$("#cfgWarnDays").addEventListener("change", async () => {
   settings.warnDays = Math.min(90, Math.max(1, num($("#cfgWarnDays").value, 7) || 7));
-  saveSettings(); renderAll();
+  await saveBarSettings(); renderAll();
+});
+$("#cfgMinPacks").addEventListener("change", async () => {
+  settings.minPacks = Math.min(20, Math.max(0, Math.round(num($("#cfgMinPacks").value, 1))));
+  await saveBarSettings(); renderAll();
+  toast(settings.minPacks > 0
+    ? "Achtung ab " + qtyUnit(settings.minPacks, "Kästen").replace("1 Kästen", "1 Kasten")
+    : "Kästen-Schwelle aus");
 });
 $("#cfgPacks").addEventListener("change", e => {
   settings.showPacks = e.target.checked;

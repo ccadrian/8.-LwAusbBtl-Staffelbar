@@ -31,7 +31,8 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 | **Nachkauf** | Jeden Einkauf separat erfassen, damit der Verbrauch korrekt bleibt (ein Nachkauf ist kein Verbrauch). Geliefert wird nichts – die Kästen werden selbst vom Getränkemarkt geholt und hier eingebucht. |
 | **Statistik** | Verbrauch zwischen zwei Zählungen, Ranking der beliebtesten Getränke, Verlaufsdiagramm pro Getränk, Filter nach Kategorie und Zeitraum. Mengen wahlweise in Flaschen oder in Kästen. |
 | **Vorhersage** | Ø-Verbrauch pro Tag/Woche und Hochrechnung, wann ein Getränk leer ist – **nur wenn die Datenlage das hergibt** (siehe unten). |
-| **Erinnerung** | „Bald nachkaufen“ steht ganz oben auf der Startseite, sortiert nach Dringlichkeit. |
+| **Erinnerung** | „Bald nachkaufen“ steht ganz oben auf der Startseite, sortiert nach Dringlichkeit – im Klartext: „nur noch 1 Kasten im Lager“. |
+| **Warnschwelle** | Unter **Mehr → Einstellungen** einstellbar, ab wie vielen Kästen ein Getränk als knapp gilt (Standard: 1 Kasten). Dazu wie bisher die Reichweite in Tagen. Beide Schwellen gelten für die **ganze Bar**, nicht nur für das Telefon, auf dem sie gesetzt wurden. |
 | **Verwalten** | Getränke anlegen, bearbeiten, löschen; Export als CSV und JSON; JSON-Backup einspielen. |
 | **QR-Code** | Wird im Tool selbst erzeugt (keine externe Bibliothek) und zeigt auf die eigene GitHub-Pages-URL. Direkt ausdruckbar für den Tresen. |
 
@@ -97,9 +98,11 @@ unter Settings → Pages.
 
 </details>
 
-Die Daten liegen unter `bars/<bar-id>/…` in vier Sammlungen: `drinks`
-(`packSize` = Flaschen je Kasten, `packName` = das Wort dafür), `counts`, `purchases` und `shopping`
-(die Einkaufsliste). `qty` ist in allen Fällen die Menge in Einzeleinheiten.
+Die Daten liegen unter `bars/<bar-id>/…` in fünf Sammlungen: `drinks`
+(`packSize` = Flaschen je Kasten, `packName` = das Wort dafür), `counts`, `purchases`,
+`shopping` (die Einkaufsliste) und `settings` mit dem einzelnen Dokument
+`thresholds` (`warnDays`, `minPacks`). `qty` ist in allen Fällen die Menge in
+Einzelflaschen.
 
 > **Zur Sicherheit:** Ohne Login müssen die Regeln offen sein – wer die
 > Projekt-ID kennt, kann in `bars/staffelbar/…` lesen und schreiben. Alles
@@ -140,6 +143,20 @@ als wäre weniger verbraucht worden. Steigt der Bestand ohne erfassten Nachkauf,
 markiert das Tool den Abschnitt und lässt ihn aus dem Durchschnitt heraus,
 statt die Zahlen stillschweigend zu verfälschen.
 
+## Wann ein Getränk als knapp gilt
+
+Drei Regeln, die unabhängig voneinander greifen – eine reicht:
+
+| Regel | Wo eingestellt |
+|---|---|
+| Bestand ≤ **Warnschwelle in Kästen** (Standard 1 Kasten) | Mehr → Einstellungen |
+| Reichweite laut Hochrechnung < **Warnschwelle in Tagen** (Standard 7) | Mehr → Einstellungen |
+| Bestand ≤ **Mindestbestand** des einzelnen Getränks | Getränke → Bearbeiten |
+
+Hat ein Getränk einen eigenen Mindestbestand, geht dieser der Kästen-Schwelle
+vor. Auf die Hälfte der Schwelle abgesunken, wird aus der Warnung ein
+kritischer Posten (gefüllter Punkt, kräftige Kontur) und rutscht nach oben.
+
 ## Wann *keine* Vorhersage angezeigt wird
 
 Eine Hochrechnung erscheint nur, wenn sie belastbar ist. Sonst steht dort der
@@ -170,6 +187,8 @@ liegt (Standard 7 Tage) oder der Mindestbestand unterschritten ist.
   Jeder Datenraum braucht eine eigene Regel-Zeile (siehe oben).
 - **Backup**: Tab **Mehr → Export**. Das JSON lässt sich dort auch wieder
   einspielen.
+- **Warnschwellen** liegen in Firestore und gelten damit für alle Geräte.
+  Ohne Firebase-Konfiguration bleiben sie lokal auf dem Gerät.
 - **Angefangene Runden** liegen nur im Browser des Geräts (`localStorage`),
   nicht in Firestore. Wer die Runde auf dem Telefon beginnt, beendet sie auch
   dort – gespeichert wird erst beim Abschluss, und dann für alle.

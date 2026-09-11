@@ -446,6 +446,9 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
       </div>
     </div>
 
+    <div class="section-title">Verbrauch insgesamt</div>
+    <div class="card" id="statTotal"></div>
+
     <div class="section-title">Beliebteste Getränke (Verbrauch)</div>
     <div class="card" id="statRank"></div>
 
@@ -453,8 +456,11 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
     <select id="statDrink"></select>
     <div class="card" id="statChart" style="margin-top:10px"></div>
 
-    <div class="section-title">Zählungen &amp; Verbrauch</div>
+    <div class="section-title">Abschnitte des gewählten Getränks</div>
     <div id="statSegments"></div>
+
+    <div class="section-title">Alle Zählungen</div>
+    <div id="statSessions"></div>
   </section>
 
   <!-- ============ GETRÄNKE ============ -->
@@ -1163,15 +1169,93 @@ function consumptionInRange(days, category){
     .map(a => {
       let total = 0, dayspan = 0;
       a.segments.forEach(s => {
-        if (!s.usable) return;
+        if (s.anomaly) return;
         if (new Date(s.to).getTime() < since) return;
         total += Math.max(0, s.consumed);
-        dayspan += s.days;
+        if (s.usable) dayspan += s.days;   // Ø-Werte nur aus brauchbaren Abschnitten
       });
       return { drink: a.drink, a, total, dayspan };
     })
     .filter(r => r.total > 0)
     .sort((x, y) => y.total - x.total);
+}
+
+/* Verbrauch aller Getränke, gebündelt nach dem Zeitpunkt der Zählung, die
+   den Abschnitt abgeschlossen hat. Damit lässt sich sehen, wie viel zwischen
+   zwei Zählungen insgesamt weggetrunken wurde – nicht nur pro Sorte. */
+function consumptionBySession(days, category){
+  const since = days ? Date.now() - days*DAY : 0;
+  const map = {};
+  analysisAll().forEach(a => {
+    if (!a.drink || (category && a.drink.category !== category)) return;
+    a.segments.forEach(seg => {
+      /* Auch sehr kurze Abschnitte zählen zur Summe – wer um 10 und um 11 Uhr
+         zählt und 60 Flaschen weniger findet, hat 60 Flaschen weniger. Für
+         Tagesschnitte bleiben sie draußen (siehe aggregateConsumption). */
+      if (seg.anomaly) return;
+      if (new Date(seg.to).getTime() < since) return;
+      const k = seg.to;
+      if (!map[k]) map[k] = { at: seg.to, from: seg.from, total: 0, n: 0, days: seg.days };
+      map[k].total += Math.max(0, seg.consumed);
+      map[k].n++;
+      map[k].days = Math.max(map[k].days, seg.days);
+      if (String(seg.from) < String(map[k].from)) map[k].from = seg.from;
+    });
+  });
+  return Object.keys(map).map(k => map[k]).sort(byTimeAsc);
+}
+
+/* Summe und Tagesschnitt über alle Sorten. Der Nenner ist der tatsächlich
+   abgedeckte Zeitraum, nicht der gewählte Filter – sonst sähe ein Tag
+   Zählungen im 30-Tage-Fenster nach einem Dreißigstel aus. */
+function aggregateConsumption(days, category){
+  const rows = consumptionBySession(days, category);
+  const total = rows.reduce((s, r) => s + r.total, 0);
+  let spanDays = 0;
+  if (rows.length){
+    const from = rows.reduce((m, r) => (String(r.from) < String(m) ? r.from : m), rows[0].from);
+    const to = rows[rows.length - 1].at;
+    spanDays = Math.max(0, (new Date(to).getTime() - new Date(from).getTime()) / DAY);
+  }
+  /* Tagesschnitt erst ab derselben Spanne, die auch für die Vorhersage
+     verlangt wird – aus einem Abend lässt sich keine Woche hochrechnen. */
+  return { rows, total, spanDays, perDay: spanDays >= FC_MIN_SPAN_DAYS ? total / spanDays : null };
+}
+
+/* Zählungen, gruppiert nach Zählrunde (gemeinsame session-Kennung) */
+function sessionList(){
+  const map = {};
+  store.counts.forEach(c => {
+    const key = c.session || ("einzeln:" + c.id);
+    if (!map[key]) map[key] = { key, at: c.at, rows: [] };
+    map[key].rows.push(c);
+    if (String(c.at) < String(map[key].at)) map[key].at = c.at;
+  });
+  return Object.keys(map).map(k => map[k])
+    .sort((x, y) => String(y.at).localeCompare(String(x.at)));
+}
+
+/* Was stand in dieser Zählung, und was folgt daraus? Wird nicht aus der
+   laufenden Auswertung gelesen, sondern für den Zeitpunkt der Zählung neu
+   gerechnet – sonst wäre "danach" schon mit eingerechnet. */
+function sessionDetail(sess){
+  return sess.rows.map(c => {
+    const d = drinkById(c.drinkId);
+    const earlier = store.counts
+      .filter(x => x.drinkId === c.drinkId && String(x.at) < String(c.at))
+      .sort(byTimeAsc);
+    const prev = earlier.length ? earlier[earlier.length - 1] : null;
+    let bought = 0, consumed = null, days = null;
+    if (prev){
+      const t0 = new Date(prev.at).getTime(), t1 = new Date(c.at).getTime();
+      bought = store.purchases.filter(p => p.drinkId === c.drinkId &&
+        new Date(p.at).getTime() > t0 && new Date(p.at).getTime() <= t1)
+        .reduce((sum, p) => sum + num(p.qty), 0);
+      consumed = Math.round((num(prev.qty) + bought - num(c.qty)) * 100) / 100;
+      days = (t1 - t0) / DAY;
+    }
+    return { d, row: c, prev, bought, consumed, days };
+  }).sort((x, y) => (y.consumed == null ? -1 : y.consumed) - (x.consumed == null ? -1 : x.consumed));
 }
 
 /* Zeitreihe Bestand für das Diagramm */
@@ -2385,24 +2469,22 @@ function renderStats(){
   $("#statCats").classList.toggle("hide", cats.length === 0);
 
   const rank = consumptionInRange(statState.range, statState.cat);
-  const totalUse = rank.reduce((s, r) => s + r.total, 0);
-  const spanDays = statState.range || (() => {
-    const all = store.counts.map(c => new Date(c.at).getTime());
-    if (all.length < 2) return 0;
-    return Math.max(1, (Math.max.apply(null, all) - Math.min.apply(null, all)) / DAY);
-  })();
-  const countsInRange = store.counts.filter(c =>
-    !statState.range || new Date(c.at).getTime() >= Date.now() - statState.range*DAY).length;
+  const agg = aggregateConsumption(statState.range, statState.cat);
+  const roundsInRange = sessionList().filter(x =>
+    !statState.range || new Date(x.at).getTime() >= Date.now() - statState.range*DAY).length;
 
   $("#statKpis").innerHTML =
-    kpi(fmt(totalUse), "Verbrauch") +
-    kpi(spanDays ? fmt(totalUse / spanDays, 1) : "–", "Ø pro Tag") +
-    kpi(String(countsInRange), "Zählungen");
+    kpi(fmt(agg.total), "Flaschen weg") +
+    kpi(agg.perDay != null ? fmt(agg.perDay, 1) : "–", "Ø pro Tag") +
+    kpi(String(roundsInRange), roundsInRange === 1 ? "Zählung" : "Zählungen");
 
-  /* Gerechnet wird immer in Einzeleinheiten; hier lässt sich nur die
+  /* Gerechnet wird immer in Einzelflaschen; hier lässt sich nur die
      Anzeige auf Kästen umstellen. */
   $$("#statUnit button").forEach(b =>
     b.classList.toggle("on", (b.dataset.packs === "1") === !!settings.showPacks));
+
+  renderTotals(agg);
+  renderSessions();
 
   /* --- Ranking: eine Serie, Werte direkt beschriftet --- */
   const box = $("#statRank");
@@ -2436,6 +2518,148 @@ function renderStats(){
   renderSegments();
 }
 function kpi(v, l){ return '<div class="kpi"><b>' + esc(v) + '</b><span>' + esc(l) + '</span></div>'; }
+
+/* Gesamtmenge über mehrere Sorten in Kästen: nach der Hausregel gerechnet,
+   weil sich Kästen unterschiedlicher Größe nicht sinnvoll addieren lassen. */
+function totalPackText(total){
+  const ps = DEFAULT_PACK_SIZE;
+  const packs = Math.floor(num(total) / ps);
+  const rest = Math.round((num(total) - packs * ps) * 100) / 100;
+  if (!packs) return qtyUnit(rest, "Flaschen");
+  return fmt(packs) + " " + (packs === 1 ? "Kasten" : "Kästen") + (rest ? " + " + fmt(rest) : "");
+}
+
+/* --- Wie viel geht insgesamt weg? --- */
+function renderTotals(agg){
+  const host = $("#statTotal");
+  agg = agg || aggregateConsumption(statState.range, statState.cat);
+  const rows = agg.rows;
+  if (!rows.length){
+    host.innerHTML = '<div class="empty" style="padding:12px">Verbrauch lässt sich erst zwischen ' +
+      'zwei Zählungen berechnen. Nach der nächsten Zählrunde steht hier, wie viel insgesamt weggeht.</div>';
+    return;
+  }
+  const total = agg.total, days = agg.spanDays, perDay = agg.perDay;
+
+  const gross = settings.showPacks ? totalPackText(total) : qtyUnit(total, "Flaschen");
+  const fein  = settings.showPacks ? qtyUnit(total, "Flaschen") : totalPackText(total) + " (à " + DEFAULT_PACK_SIZE + ")";
+
+  const head =
+    '<div class="tiny faint">Getrunken' + (statState.cat ? " · " + esc(statState.cat) : "") + '</div>' +
+    '<div style="font-size:26px;font-weight:640;letter-spacing:-.035em;margin:3px 0 5px">' + esc(gross) + '</div>' +
+    '<div class="small muted">' + esc(fein) +
+      (perDay != null ? ' · Ø ' + fmt(perDay, 1) + ' pro Tag · Ø ' + fmt(perDay * 7, 1) + ' pro Woche' : '') +
+    '</div>' +
+    '<div class="tiny faint" style="margin-top:3px">aus ' + rows.length +
+      (rows.length === 1 ? ' Abschnitt' : ' Abschnitten') +
+      ' über ' + fmt(days, 1) + (days === 1 ? ' Tag' : ' Tage') +
+      (perDay == null ? ' · zu kurz für einen belastbaren Tagesschnitt' : '') + '</div>';
+
+  /* Balken: ein Abschnitt zwischen zwei Zählungen je Balken */
+  const W = Math.max(260, host.clientWidth - 30), H = 168;
+  const padL = 34, padR = 10, padT = 18, padB = 26;
+  const yMax = niceMax(Math.max.apply(null, rows.map(r => r.total)) * 1.15);
+  const slot = (W - padL - padR) / rows.length;
+  const bw = Math.max(5, Math.min(36, slot * 0.62));
+  const Y = v => padT + (1 - v / yMax) * (H - padT - padB);
+
+  const grid = [0, yMax/2, yMax].map(v =>
+    '<line x1="' + padL + '" y1="' + Y(v).toFixed(1) + '" x2="' + (W-padR) + '" y2="' + Y(v).toFixed(1) +
+    '" stroke="var(--line)" stroke-width="1"/>' +
+    '<text x="' + (padL-6) + '" y="' + (Y(v)+4).toFixed(1) + '" text-anchor="end" font-size="10" ' +
+    'fill="var(--fg-faint)">' + fmt(v, yMax < 5 ? 1 : 0) + '</text>').join("");
+
+  const bars = rows.map((r, i) => {
+    const cx = padL + slot*i + slot/2, y = Y(r.total);
+    return '<rect x="' + (cx - bw/2).toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) +
+      '" height="' + Math.max(1, Y(0) - y).toFixed(1) + '" rx="2" fill="var(--accent)" opacity=".9"/>' +
+      (rows.length <= 10
+        ? '<text x="' + cx.toFixed(1) + '" y="' + Math.max(11, y - 5).toFixed(1) + '" text-anchor="middle" ' +
+          'font-size="10" fill="var(--fg-dim)">' + fmt(r.total) + '</text>'
+        : "");
+  }).join("");
+
+  const xl = '<text x="' + padL + '" y="' + (H-6) + '" font-size="10" fill="var(--fg-faint)">' +
+      esc(fmtDate(rows[0].at)) + '</text>' +
+    (rows.length > 1
+      ? '<text x="' + (W-padR) + '" y="' + (H-6) + '" text-anchor="end" font-size="10" fill="var(--fg-faint)">' +
+        esc(fmtDate(rows[rows.length-1].at)) + '</text>'
+      : "");
+
+  host.innerHTML = head +
+    '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
+      '" style="height:' + H + 'px;margin-top:12px">' + grid + bars + xl + '</svg>' +
+    '<div class="legend"><span>ein Balken = Verbrauch zwischen zwei Zählungen</span></div>';
+}
+
+/* --- Protokoll: jede gespeicherte Zählung zum Nachschlagen --- */
+function renderSessions(){
+  const list = sessionList().filter(x =>
+    !statState.range || new Date(x.at).getTime() >= Date.now() - statState.range*DAY).slice(0, 60);
+  const host = $("#statSessions");
+  if (!list.length){
+    host.innerHTML = '<div class="empty">In diesem Zeitraum wurde nicht gezählt.</div>';
+    return;
+  }
+  host.innerHTML = list.map(sess => {
+    const det = sessionDetail(sess);
+    const mit = det.filter(x => x.consumed != null);
+    const used = mit.reduce((a, b) => a + Math.max(0, b.consumed), 0);
+    const anomal = det.some(x => x.consumed != null && x.consumed < -0.0001);
+    return '<button class="item" data-sess="' + esc(sess.key) + '" style="width:100%;text-align:left">' +
+      '<div class="i-main"><div class="i-name">' + esc(fmtDateTime(sess.at)) + '</div>' +
+      '<div class="i-sub">' + sess.rows.length + ' Getränk' + (sess.rows.length > 1 ? 'e' : '') +
+        (mit.length ? ' · ' + esc(qtyUnit(used, "Flaschen")) + ' verbraucht' : ' · erste Zählung') +
+        (anomal ? ' · Bestand gestiegen' : '') + '</div></div>' +
+      '<div class="i-val faint">›</div></button>';
+  }).join("");
+}
+
+$("#statSessions").addEventListener("click", e => {
+  const b = e.target.closest("[data-sess]"); if (b) showSession(b.dataset.sess);
+});
+
+function showSession(key){
+  const sess = sessionList().find(x => x.key === key); if (!sess) return;
+  const det = sessionDetail(sess);
+  const mit = det.filter(x => x.consumed != null);
+  const used = mit.reduce((a, b) => a + Math.max(0, b.consumed), 0);
+  const spanne = mit.map(x => x.days).filter(x => x != null).sort((a, b) => b - a)[0];
+
+  const line = r => {
+    let val, sub;
+    if (r.consumed == null){ val = "–"; sub = "erste Zählung dieses Getränks"; }
+    else if (r.consumed < -0.0001){
+      val = "+" + fmt(-r.consumed);
+      sub = "Bestand gestiegen – Einkauf fehlt";
+    } else {
+      val = fmt(r.consumed);
+      sub = "vorher " + qtyText(num(r.prev.qty), r.d) +
+            (r.bought ? " + " + qtyText(r.bought, r.d) + " gekauft" : "") +
+            " → gezählt " + qtyText(num(r.row.qty), r.d) +
+            (r.days != null ? " · " + fmt(r.days, 1) + " Tage" : "");
+    }
+    return '<div class="sum-row"><div class="s-main">' +
+      '<div class="s-name">' + esc(r.d ? r.d.name : "(gelöschtes Getränk)") + '</div>' +
+      '<div class="s-sub">' + esc(sub) + '</div></div>' +
+      '<div class="s-val">' + esc(val) + '</div></div>';
+  };
+
+  sheet(
+    '<h3>Zählung vom ' + esc(fmtDateTime(sess.at)) + '</h3>' +
+    '<div class="small muted" style="margin-top:4px">' + sess.rows.length + ' Getränk' +
+      (sess.rows.length > 1 ? 'e' : '') + ' erfasst</div>' +
+    '<div class="kpis" style="margin-top:16px">' +
+      kpi(fmt(used), "verbraucht") +
+      kpi(spanne != null ? fmt(spanne, 1) : "–", "Tage davor") +
+      kpi(String(mit.length), "mit Verbrauch") +
+    '</div>' +
+    '<div class="card">' + det.map(line).join("") + '</div>' +
+    '<button class="btn primary block" data-act="close" style="margin-top:6px">Schließen</button>',
+    el => { el.addEventListener("click", e => {
+      if (e.target.closest('[data-act="close"]')) closeSheet();
+    }); });
+}
 
 $("#statDrink").addEventListener("change", e => { statState.drinkId = e.target.value; drawChart(); renderSegments(); });
 $("#statUnit").addEventListener("click", e => {
@@ -3048,7 +3272,7 @@ function renderAll(){
 }
 
 $("#btnRefresh").addEventListener("click", async () => { await store.connect(); renderAll(); toast("Aktualisiert"); });
-window.addEventListener("resize", () => { if (view === "stats") drawChart(); });
+window.addEventListener("resize", () => { if (view === "stats"){ drawChart(); renderTotals(); } });
 window.addEventListener("online",  () => { store.status = store.mode === "firebase" ? "online" : store.status; renderAll(); });
 window.addEventListener("offline", () => { if (store.mode === "firebase") store.status = "offline"; renderAll(); });
 

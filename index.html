@@ -175,7 +175,31 @@ select{appearance:none;
 .savebar .in{max-width:680px;margin:0 auto;pointer-events:auto}
 .savebar .btn{box-shadow:0 6px 24px rgba(0,0,0,.16)}
 
-/* ---------- Zaehlrunde: ein Getraenk nach dem anderen ---------- */
+/* ---------- Zaehlrunde: ein Getraenk nach dem anderen ----------
+   Waehrend einer Runde legt sich der Bildschirm als Vollbild ueber alles:
+   keine Tableiste, kein Kopf, kein Scrollen. Alles was zaehlt liegt in
+   Daumennaehe, und ein Fehlgriff auf einen Tab kostet nicht den Platz. */
+body.counting nav.tabs,
+body.counting header.top{display:none}
+body.counting{padding-bottom:0;overscroll-behavior:none}
+
+#roundZone.rz{position:fixed;inset:0;z-index:60;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;
+  padding:calc(8px + env(safe-area-inset-top,0px)) 16px calc(8px + var(--safe-b))}
+/* Auch am grossen Bildschirm bleibt die Runde telefonbreit – ein Zahlenblock
+   ueber 1000 Pixel ist niemandem eine Hilfe. */
+#roundZone.rz > *{width:100%;max-width:460px}
+#roundZone .r-head{flex:none;padding-bottom:2px}
+#roundZone .r-body{flex:1;min-height:0;display:flex;flex-direction:column}
+#roundZone .r-body.scroll{overflow-y:auto;-webkit-overflow-scrolling:touch}
+#roundZone .r-foot2{flex:none;padding-top:10px}
+
+/* Der Zahlenblock nimmt, was uebrig bleibt – auf grossen Telefonen werden
+   die Tasten groesser statt dass unten Luft steht. */
+#roundZone .r-pad{flex:1;min-height:0;display:flex;flex-direction:column}
+#roundZone .r-pad .pad{flex:1;min-height:186px;grid-auto-rows:1fr;margin-top:8px}
+#roundZone .r-pad .pad button{height:auto;font-size:24px}
+
 .progress{display:flex;align-items:center;gap:11px;margin-bottom:14px}
 .progress .p-bar{flex:1;height:4px;border-radius:2px;background:var(--card-2);overflow:hidden}
 .progress .p-bar > i{display:block;height:100%;background:var(--accent);transition:width .18s ease}
@@ -187,6 +211,21 @@ select{appearance:none;
   font-weight:600;margin-bottom:5px}
 .round-name{font-size:23px;font-weight:620;letter-spacing:-.03em;line-height:1.2}
 .round-last{font-size:13px;color:var(--fg-dim);margin-top:6px}
+
+/* Kopf der Runde: Fortschritt, Zaehlerstand, Ausstieg */
+.r-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.r-top .p-bar{flex:1;height:4px;border-radius:2px;background:var(--card-2);overflow:hidden}
+.r-top .p-bar > i{display:block;height:100%;background:var(--accent);transition:width .2s ease}
+.r-top .r-count{font-size:12.5px;color:var(--fg-dim);font-variant-numeric:tabular-nums;flex:none}
+.r-top button{width:34px;height:34px;flex:none;border-radius:9px;border:1px solid var(--line-2);
+  color:var(--fg-dim);font-size:15px;display:grid;place-items:center}
+.r-top button:active{background:var(--card-2)}
+.r-top button[disabled]{opacity:.3;pointer-events:none}
+.r-top button:first-child{font-size:22px;line-height:0}
+
+/* Getraenk ohne Kartenrahmen – der Rahmen kostet auf dem Telefon nur Platz */
+.r-drink{flex:none;padding:2px 0 10px}
+.r-drink .round-name{font-size:26px}
 
 /* Kaesten + Einzelflaschen nebeneinander */
 .padfields{display:flex;gap:9px;margin-top:15px}
@@ -224,7 +263,7 @@ select{appearance:none;
    schnelle Tipp die falsche Taste. */
 .padhint{margin-top:11px;padding:8px 12px;border-radius:9px;background:var(--card-2);
   font-size:13px;color:var(--fg-dim);line-height:1.45;text-align:center;
-  min-height:46px;display:flex;align-items:center;justify-content:center}
+  min-height:56px;display:flex;align-items:center;justify-content:center}
 .padhint.warn{background:transparent;border:1px solid var(--fg);color:var(--fg)}
 .padhint.empty{background:transparent}
 .padhint > span{display:block}
@@ -565,10 +604,7 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
         <button class="btn" id="pinChange">Code ändern</button>
         <button class="btn ghost" id="pinLock">Jetzt sperren</button>
       </div>
-      <div class="btn-grid" style="margin-top:10px">
-        <button class="btn ghost" id="pinMaster">Master-Code ändern</button>
-        <button class="btn ghost hide" id="pinClear">Code entfernen</button>
-      </div>
+      <button class="btn ghost block hide" id="pinClear" style="margin-top:10px">Code entfernen</button>
     </div>
 
     <div class="section-title">Daten</div>
@@ -710,7 +746,7 @@ function loadSettings(){
        und vor dem ersten Firestore-Schnappschuss greift. */
     pinHash: typeof s.pinHash === "string" ? s.pinHash : "",
     pinLen: Math.max(0, Math.round(num(s.pinLen, 0))),
-    masterHash: typeof s.masterHash === "string" ? s.masterHash : "",
+
     /* Anzeige in Kästen. Gerechnet wird immer in Einzelflaschen. */
     showPacks: s.showPacks === undefined ? true : !!s.showPacks
   };
@@ -719,8 +755,7 @@ function saveSettings(){
   try {
     localStorage.setItem(LS_CFG, JSON.stringify({ fb: settings.fb, barId: settings.barId,
       warnDays: settings.warnDays, minPacks: settings.minPacks,
-      pinHash: settings.pinHash, pinLen: settings.pinLen,
-      masterHash: settings.masterHash, showPacks: settings.showPacks }));
+      pinHash: settings.pinHash, pinLen: settings.pinLen, showPacks: settings.showPacks }));
   } catch(_) {}
 }
 /* ---------------------------------------------------------------------
@@ -749,16 +784,23 @@ async function pinHash(pin){
   return "x" + h.toString(16);
 }
 
-/* Der Master-Code schützt das Ändern des Zugangscodes. Solange keiner
-   eingerichtet ist, lässt sich alles setzen – sonst käme niemand je an den
-   ersten heran. */
-function currentMasterHash(){
-  return (store.config && store.config.masterHash) || settings.masterHash || "";
-}
-function hasMaster(){ return !!currentMasterHash(); }
+/* Der Master-Code gibt das Ändern und Entfernen des Zugangscodes frei.
+   Er steht bewusst nur hier und lässt sich in der App nicht ändern –
+   wer ihn wechseln will, ändert diese eine Zeile und pusht.
+
+   Erlaubt ist beides: der Code im Klartext ("1234") oder sein Hash.
+   Hash erzeugen: auf der laufenden Seite in der Browser-Konsole
+       await pinHash("1234")
+   ausführen und das Ergebnis hier eintragen. Leer = kein Master-Code,
+   dann lässt sich der Zugangscode ohne Freigabe ändern. */
+const MASTER_CODE = "bfd1e70a8f58ce098d287c5ca5d8d07fb0a3af9f2bcb625b1757f1073eb30732";
+
+function hasMaster(){ return !!MASTER_CODE; }
 async function masterOk(eingabe){
   if (!hasMaster()) return true;
-  return (await pinHash(eingabe)) === currentMasterHash();
+  const v = String(eingabe == null ? "" : eingabe).trim();
+  if (v && v === MASTER_CODE) return true;          // Klartext hinterlegt
+  return (await pinHash(v)) === MASTER_CODE;        // Hash hinterlegt
 }
 
 /* Maßgeblich ist der Hash aus der Datenbank; der lokale ist nur der zuletzt
@@ -871,7 +913,6 @@ function applyBarSettings(){
     settings.minPacks = Math.min(20, Math.max(0, Math.round(num(c.minPacks, 1))));
   settings.pinHash = (typeof c.pinHash === "string") ? c.pinHash : "";
   settings.pinLen = Math.max(0, Math.round(num(c.pinLen, 0)));
-  settings.masterHash = (typeof c.masterHash === "string") ? c.masterHash : "";
   saveSettings();
   /* Jetzt ist bekannt, ob und welcher Code gilt: aufsperren, wenn keiner
      eingerichtet ist oder dieses Gerät schon frei ist – sonst zusperren. */
@@ -884,7 +925,7 @@ async function saveBarSettings(){
     await store.set("settings", THRESHOLD_DOC, {
       warnDays: settings.warnDays, minPacks: settings.minPacks,
       pinHash: settings.pinHash || "", pinLen: settings.pinLen || 0,
-      masterHash: settings.masterHash || "", at: new Date().toISOString()
+      at: new Date().toISOString()
     });
   } catch(err){ console.error(err); toast("Schwelle konnte nicht geteilt werden"); }
 }
@@ -1787,6 +1828,8 @@ function startRound(cat){
 function endRound(){
   round.active = false; round.st = null; round.stFor = ""; round.overview = false;
   round.restored = false;
+  $("#roundZone").classList.remove("rz");
+  document.body.classList.remove("counting");
   persistRound();
   renderAll();
 }
@@ -1824,6 +1867,9 @@ function roundJump(i){
 
 function renderRound(){
   const zone = $("#roundZone");
+  zone.classList.add("rz");
+  document.body.classList.add("counting");
+
   /* Beim Start sind die Getränke noch nicht geladen – eine wiederhergestellte
      Runde darf daran nicht scheitern. */
   if (!store.drinks.length){
@@ -1837,58 +1883,67 @@ function renderRound(){
 
   const total = round.order.length;
   const counted = round.order.filter(id => pending.has(id)).length;
-  const bar = '<div class="progress"><div class="p-bar"><i style="width:' +
-    Math.round((Math.min(round.idx, total) / total) * 100) + '%"></i></div>' +
-    '<div class="p-txt">' + counted + " / " + total + ' gezählt</div></div>' +
-    (round.restored
-      ? '<div class="banner"><div><b>Angefangene Runde fortgesetzt.</b> ' + counted +
-        ' bereits erfasste Menge(n) sind noch da.</div></div>'
-      : "");
+  const pos = Math.min(round.idx, total);
+  /* Zurück sitzt im Kopf, nicht unten: dadurch sieht die Fußleiste bei jedem
+     Getränk gleich aus und der Zahlenblock verrutscht zwischen zwei
+     Getränken um keinen Pixel. */
+  const head =
+    '<div class="r-head"><div class="r-top">' +
+      '<button data-act="prev"' + (round.idx ? "" : " disabled") + ' aria-label="Zurück">&#8249;</button>' +
+      '<div class="p-bar"><i style="width:' + Math.round((pos / total) * 100) + '%"></i></div>' +
+      '<div class="r-count">' + counted + " / " + total + '</div>' +
+      '<button data-act="overview" aria-label="Übersicht">&#9776;</button>' +
+      '<button data-act="abort" aria-label="Abbrechen">&#10005;</button>' +
+    '</div></div>';
 
   /* --- Übersicht: was ist erledigt, was fehlt --- */
   if (round.overview){
-    zone.innerHTML = bar +
-      '<div class="section-title" style="margin-top:0">Übersicht</div>' +
-      round.order.map((id, i) => {
-        const d = drinkById(id), has = pending.has(id);
-        return '<button class="tick' + (has ? " ok" : "") + (i === round.idx ? " cur" : "") +
-          '" data-jump="' + i + '">' +
-          '<span class="t-mark">' + (has ? "&#10003;" : "") + '</span>' +
-          '<span class="t-name">' + esc(d.name) + '</span>' +
-          '<span class="t-val">' + (has ? esc(qtyText(pending.get(id), d)) : "offen") + '</span></button>';
-      }).join("") +
-      '<div class="round-foot"><button class="btn" data-act="close-ov">Zurück zum Zählen</button></div>';
+    zone.innerHTML = head +
+      '<div class="r-body scroll">' +
+        '<div class="section-title" style="margin-top:0">Übersicht</div>' +
+        round.order.map((id, i) => {
+          const d = drinkById(id), has = pending.has(id);
+          return '<button class="tick' + (has ? " ok" : "") + (i === round.idx ? " cur" : "") +
+            '" data-jump="' + i + '">' +
+            '<span class="t-mark">' + (has ? "&#10003;" : "") + '</span>' +
+            '<span class="t-name">' + esc(d.name) + '</span>' +
+            '<span class="t-val">' + (has ? esc(qtyText(pending.get(id), d)) : "offen") + '</span></button>';
+        }).join("") +
+      '</div>' +
+      '<div class="r-foot2"><button class="btn primary block" data-act="close-ov">Weiter zählen</button></div>';
     return;
   }
 
   /* --- Abschluss der Runde --- */
   if (round.idx >= total){
     const missing = round.order.filter(id => !pending.has(id));
-    zone.innerHTML = bar +
-      '<div class="round-card">' +
-        '<div class="round-cat">Runde durch</div>' +
-        '<div class="round-name">' + counted + " von " + total + ' gezählt</div>' +
-        '<div class="round-last">' + (missing.length
-          ? missing.length + " Getränk" + (missing.length > 1 ? "e wurden" : " wurde") + " übersprungen – " +
-            "das ist in Ordnung, dafür wird nur kein Verbrauch berechnet."
-          : "Alles erfasst.") + '</div>' +
+    zone.innerHTML = head +
+      '<div class="r-body scroll">' +
+        '<div class="r-drink">' +
+          '<div class="round-cat">Runde durch</div>' +
+          '<div class="round-name">' + counted + " von " + total + ' gezählt</div>' +
+          '<div class="round-last">' + (missing.length
+            ? missing.length + " Getränk" + (missing.length > 1 ? "e wurden" : " wurde") + " übersprungen – " +
+              "das ist in Ordnung, dafür wird nur kein Verbrauch berechnet."
+            : "Alles erfasst.") + '</div>' +
+        '</div>' +
+        (missing.length
+          ? '<div class="section-title">Noch offen</div>' +
+            missing.map(id => {
+              const i = round.order.indexOf(id);
+              return '<button class="tick skip" data-jump="' + i + '">' +
+                '<span class="t-mark"></span><span class="t-name">' + esc(drinkById(id).name) + '</span>' +
+                '<span class="t-val">nachtragen</span></button>';
+            }).join("")
+          : "") +
       '</div>' +
-      (missing.length
-        ? '<div class="section-title">Noch offen</div>' +
-          missing.map(id => {
-            const i = round.order.indexOf(id);
-            return '<button class="tick skip" data-jump="' + i + '">' +
-              '<span class="t-mark"></span><span class="t-name">' + esc(drinkById(id).name) + '</span>' +
-              '<span class="t-val">nachtragen</span></button>';
-          }).join("")
-        : "") +
-      '<div style="margin-top:14px">' +
+      '<div class="r-foot2">' +
         '<button class="btn primary block" data-act="save"' + (counted ? "" : " disabled") + '>' +
           (counted ? "Zählung speichern (" + counted + ")" : "Nichts zu speichern") + '</button>' +
-      '</div>' +
-      '<div class="round-foot">' +
-        '<button class="btn" data-act="back">Zurück</button>' +
-        '<button class="btn ghost" data-act="abort">Runde abbrechen</button>' +
+        '<div class="round-nav" style="margin-top:10px">' +
+          '<button class="btn ghost" data-act="back">Zurück</button>' +
+          '<button class="btn ghost" data-act="abort">Abbrechen</button>' +
+        '</div>' +
       '</div>';
     return;
   }
@@ -1900,25 +1955,45 @@ function renderRound(){
       (a.boughtAfter ? " · seitdem +" + qtyText(a.boughtAfter, d) + " gekauft" : "")
     : "noch nie gezählt";
 
-  zone.innerHTML = bar +
-    '<div class="round-card">' +
-      '<div class="round-cat">' + esc(d.category || "ohne Kategorie") + ' · ' + (round.idx + 1) + " von " + total +
-        (round.cat === ROUND_DUE ? ' · nur Knappes' : '') + '</div>' +
-      '<div class="round-name">' + esc(d.name) + '</div>' +
-      '<div class="round-last">' + esc(last) + '</div>' +
-      '<div id="padBody">' + padHtml(d, st) + '</div>' +
+  zone.innerHTML = head +
+    (round.restored
+      ? '<div class="banner" style="margin-bottom:8px"><div><b>Runde fortgesetzt.</b> ' + counted +
+        ' erfasste Menge(n) sind noch da.</div></div>'
+      : "") +
+    '<div class="r-body">' +
+      '<div class="r-drink">' +
+        '<div class="round-cat">' + esc(d.category || "ohne Kategorie") + ' · ' + (round.idx + 1) + " von " + total +
+          (round.cat === ROUND_DUE ? ' · nur Knappes' : '') + '</div>' +
+        '<div class="round-name">' + esc(d.name) + '</div>' +
+        '<div class="round-last">' + esc(last) + '</div>' +
+      '</div>' +
+      '<div id="padBody" class="r-pad">' + padHtml(d, st) + '</div>' +
     '</div>' +
-    '<div class="round-nav">' +
+    '<div class="r-foot2"><div class="round-nav">' +
       '<button class="btn" data-act="skip">Überspringen</button>' +
       '<button class="btn primary" data-act="next">' +
-        (round.idx === total - 1 ? "Weiter zum Abschluss" : "Weiter") + '</button>' +
-    '</div>' +
-    '<div class="round-foot">' +
-      '<button class="btn ghost sm" data-act="prev"' + (round.idx ? "" : " disabled") + '>Zurück</button>' +
-      '<button class="btn ghost sm" data-act="overview">Übersicht (' + counted + "/" + total + ')</button>' +
-      '<button class="btn ghost sm" data-act="abort">Abbrechen</button>' +
-    '</div>';
+        (round.idx === total - 1 ? "Abschluss" : "Weiter") + '</button>' +
+    '</div></div>';
 }
+
+/* Wischen wechselt das Getränk – eine Hand, kein Zielen auf Knöpfe. */
+(function(){
+  const zone = $("#roundZone");
+  let x0 = null, y0 = null;
+  zone.addEventListener("touchstart", e => {
+    if (!round.active || round.overview || round.idx >= round.order.length){ x0 = null; return; }
+    const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY;
+  }, { passive: true });
+  zone.addEventListener("touchend", e => {
+    if (x0 == null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - x0, dy = t.clientY - y0;
+    x0 = null;
+    /* deutlich waagerecht und weit genug – sonst war es ein Tastendruck */
+    if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+    roundGo(dx < 0 ? 1 : -1, true);
+  }, { passive: true });
+})();
 
 $("#roundZone").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;
@@ -1953,6 +2028,8 @@ function renderCount(){
   $("#countHome").classList.toggle("hide", round.active);
   if (round.active){ renderRound(); persistRound(); return; }
   rz.innerHTML = "";        // kein totes Markup stehen lassen (doppelte IDs)
+  rz.classList.remove("rz");
+  document.body.classList.remove("counting");
 
   const ana = {}; analysisAll().forEach(a => { if (a.drink) ana[a.drink.id] = a; });
   const al = alerts();
@@ -3272,7 +3349,6 @@ function renderMore(){
   $("#pinClear").classList.toggle("hide", !hatCode);
   $("#pinLock").disabled = !hatCode;
   $("#pinChange").textContent = hatCode ? "Code ändern" : "Code einrichten";
-  $("#pinMaster").textContent = hasMaster() ? "Master-Code ändern" : "Master-Code einrichten";
 
   /* Im Klartext, was die Schwelle bedeutet */
   const n = num(settings.minPacks, 0);
@@ -3448,7 +3524,7 @@ $("#cfgClear").addEventListener("click", () => {
     "Zurücksetzen", async () => {
       settings.fb = null; settings.barId = DEFAULT_BAR_ID; settings.warnDays = 7;
       settings.minPacks = 1; settings.showPacks = true;
-      settings.pinHash = ""; settings.pinLen = 0; settings.masterHash = "";
+      settings.pinHash = ""; settings.pinLen = 0;
       saveSettings(); await store.connect(); renderAll(); toast("Zurückgesetzt");
     });
 });
@@ -3534,38 +3610,6 @@ $("#pinChange").addEventListener("click", () => {
         toast(store.mode === "firebase" ? "Code geändert – gilt für alle Geräte"
                                         : "Code geändert – nur auf diesem Gerät");
         renderAll();
-      };
-    });
-});
-
-$("#pinMaster").addEventListener("click", () => {
-  sheet(
-    '<h3>' + (hasMaster() ? "Master-Code ändern" : "Master-Code einrichten") + '</h3>' +
-    '<div class="small muted" style="margin-top:5px">Mit ihm wird der Zugangscode ' +
-      'freigegeben – ohne ihn lässt er sich nicht ändern oder entfernen.</div>' +
-    '<div style="margin-top:16px">' +
-    (hasMaster()
-      ? '<label class="fld"><span>Bisheriger Master-Code</span>' +
-        '<input type="password" id="pinM" inputmode="numeric" autocomplete="off"></label>'
-      : "") +
-    '<label class="fld"><span>Neuer Master-Code</span>' +
-      '<input type="password" id="m1" inputmode="numeric" autocomplete="new-password" placeholder="vier Ziffern"></label>' +
-    '<label class="fld"><span>Noch einmal</span>' +
-      '<input type="password" id="m2" inputmode="numeric" autocomplete="new-password"></label>' +
-    '</div>' +
-    '<div class="btn-grid"><button class="btn ghost" id="mCancel">Abbrechen</button>' +
-    '<button class="btn primary" id="mSave">Speichern</button></div>',
-    el => {
-      $("#mCancel", el).onclick = closeSheet;
-      $(hasMaster() ? "#pinM" : "#m1", el).focus();
-      $("#mSave", el).onclick = async () => {
-        if (!(await masterGeprueft(el))) return;
-        const a = $("#m1", el).value.trim(), b = $("#m2", el).value.trim();
-        if (!/^\d{4,12}$/.test(a)) return toast("Vier bis zwölf Ziffern");
-        if (a !== b) return toast("Die beiden Eingaben sind verschieden");
-        settings.masterHash = await pinHash(a);
-        await saveBarSettings();
-        closeSheet(); toast("Master-Code gespeichert"); renderAll();
       };
     });
 });

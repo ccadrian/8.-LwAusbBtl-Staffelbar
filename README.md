@@ -21,7 +21,7 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 | Bereich | Funktion |
 |---|---|
 | **Startseite** | Zeigt den **aktuellen Bestand** aller Getränke auf einen Blick – letzte Zählung plus alles, was seitdem dazugekauft wurde – mit Reichweite in Tagen und Dringlichkeitsmarkierung. Antippen zählt dieses eine Getränk nach. Darüber drei Kennzahlen: Anzahl Getränke, wie viele knapp werden, wann zuletzt gezählt wurde. |
-| **Zählrunde** | Geführt, ein Getränk nach dem anderen, nach Kategorie sortiert, mit Fortschrittsanzeige. Der Zahlenblock steht direkt darunter – kein Suchen in langen Listen. Überspringen ist erlaubt, die Übersicht zeigt jederzeit, was schon gezählt ist und was fehlt. Wahlweise nur eine Kategorie oder **nur das, was knapp wird**. |
+| **Zählrunde** | Läuft im **Vollbild**: keine Tableiste, kein Kopf, kein Scrollen – ein Getränk pro Bildschirm, der Zahlenblock füllt den Rest und wächst auf großen Telefonen mit. Fortschritt, Übersicht und Abbruch sitzen oben, *Überspringen* und *Weiter* unten in Daumennähe; die Fußleiste sieht bei jedem Getränk gleich aus, damit nichts unter dem Finger wegrutscht. **Wischen** blättert vor und zurück. Wahlweise nur eine Kategorie oder **nur das, was knapp wird**. |
 | **Kontrolle beim Tippen** | Schon während der Eingabe steht darunter, was die Zahl bedeutet: „das wären 12 Flaschen verbraucht in 7 Tagen · Ø 1,7/Tag“. Steigt der Bestand oder liegt der Verbrauch um ein Vielfaches über dem Schnitt, wird deutlich gewarnt – ein Vertipper fällt auf, solange er noch zu ändern ist. |
 | **Unterbrechbar** | Eine angefangene Runde übersteht das Schließen der Seite: Position und erfasste Mengen sind beim nächsten Öffnen wieder da (bis zu zwei Tage). |
 | **Zurücknehmen** | Eine gerade gespeicherte Zählung lässt sich rückgängig machen. Die Mengen bleiben dabei als ungespeicherte Zählung stehen, sodass sich ein Fehler korrigieren lässt, ohne noch einmal durch die ganze Bar zu laufen. |
@@ -35,7 +35,7 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 | **Erinnerung** | „Bald nachkaufen“ steht ganz oben auf der Startseite, sortiert nach Dringlichkeit – im Klartext: „nur noch 1 Kasten im Lager“. |
 | **Warnschwelle** | Unter **Mehr → Einstellungen** einstellbar, ab wie vielen Kästen ein Getränk als knapp gilt (Standard: 1 Kasten). Dazu wie bisher die Reichweite in Tagen. Beide Schwellen gelten für die **ganze Bar**, nicht nur für das Telefon, auf dem sie gesetzt wurden. |
 | **Verwalten** | Getränke anlegen, bearbeiten, löschen; Export als CSV und JSON; JSON-Backup einspielen. |
-| **Zugangscode** | Beim Öffnen fragt die Seite einen Zahlencode ab; jedes Gerät merkt ihn sich einmal. Ändern und Entfernen gehen nur mit dem **Master-Code**. Beide stehen **nicht in der Seite**, sondern als Hash in der Datenbank – Ändern unter *Mehr → Zugang* wirkt damit auf allen Geräten. Siehe unten, was das leistet und was nicht. |
+| **Zugangscode** | Beim Öffnen fragt die Seite einen Zahlencode ab; jedes Gerät merkt ihn sich einmal. Er steht als Hash in der Datenbank, nicht in der Seite – Ändern unter *Mehr → Zugang* wirkt damit auf allen Geräten. Ändern und Entfernen gehen nur nach Eingabe des **Master-Codes**, und der steht ausschließlich als Konstante `MASTER_CODE` in `index.html`. Siehe unten, was das leistet und was nicht. |
 | **QR-Code** | Wird im Tool selbst erzeugt (keine externe Bibliothek) und zeigt auf die eigene GitHub-Pages-URL. Direkt ausdruckbar für den Tresen. |
 
 ---
@@ -103,8 +103,8 @@ unter Settings → Pages.
 Die Daten liegen unter `bars/<bar-id>/…` in fünf Sammlungen: `drinks`
 (`packSize` = Flaschen je Kasten, `packName` = das Wort dafür), `counts`, `purchases`,
 `shopping` (die Einkaufsliste) und `settings` mit dem einzelnen Dokument
-`thresholds` (`warnDays`, `minPacks`, `pinHash`, `pinLen`, `masterHash`). `qty`
-ist in allen Fällen die Menge in Einzelflaschen.
+`thresholds` (`warnDays`, `minPacks`, `pinHash`, `pinLen`). `qty` ist in allen
+Fällen die Menge in Einzelflaschen.
 
 > **Zur Sicherheit:** Ohne Login müssen die Regeln offen sein – wer die
 > Projekt-ID kennt, kann in `bars/staffelbar/…` lesen und schreiben. Alles
@@ -118,10 +118,12 @@ herumklicken“ reicht das.
 
 **Er leistet nicht:** echten Schutz der Daten.
 
-- Gespeichert werden nur gesalzene SHA-256-Hashes (`pinHash` für den Zugangs-,
-  `masterHash` für den Master-Code), und zwar im Dokument `settings/thresholds`.
-  Die Seite selbst enthält keinen der beiden – aber dieses Dokument ist wie
-  alle anderen öffentlich lesbar.
+- Vom Zugangscode wird nur ein gesalzener SHA-256-Hash gespeichert (`pinHash`
+  im Dokument `settings/thresholds`). Die Seite selbst enthält ihn nicht – aber
+  dieses Dokument ist wie alle anderen öffentlich lesbar.
+- Der **Master-Code** steht als Konstante `MASTER_CODE` oben in `index.html`
+  und lässt sich nur dort ändern, nicht in der App. Erlaubt ist der Code im
+  Klartext oder sein Hash; wie man den erzeugt, steht als Kommentar daneben.
 - Vier Ziffern sind in Sekunden durchprobiert.
 - Vor allem: Die Daten hängen an den offenen Firestore-Regeln. Wer die
   Projekt-ID aus dem Seitenquelltext nimmt, kommt an der Oberfläche
@@ -135,9 +137,9 @@ selbst geschützt, nicht nur die Oberfläche. Das ist der nächste sinnvolle
 Schritt, wenn es ernst wird.
 
 **Code vergessen?** In der Firebase-Konsole unter *Firestore → Daten →
-`bars/staffelbar/settings/thresholds`* das Feld `pinHash` leeren (und
-`masterHash`, falls auch der weg ist). Danach ist die Seite wieder offen und
-neue Codes lassen sich setzen.
+`bars/staffelbar/settings/thresholds`* das Feld `pinHash` leeren. Danach ist
+die Seite wieder offen und ein neuer Code lässt sich setzen. Den Master-Code
+ändert man in `index.html`.
 
 ---
 

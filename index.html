@@ -411,7 +411,8 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
       <button data-act="ok" class="alt">&#10003;</button>
     </div>
     <div class="lock-msg" id="lockMsg"></div>
-    <div class="lock-foot" id="lockFoot">Schützt die Oberfläche vor neugierigen Blicken.</div>
+    <!-- bleibt leer; trägt im Notfall den Ausweg "Ohne Code fortfahren" -->
+    <div class="lock-foot" id="lockFoot"></div>
   </div>
 </div>
 
@@ -560,12 +561,14 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
 
     <div class="section-title">Zugang</div>
     <div class="card">
-      <div id="pinStatus"></div>
       <div class="btn-grid">
         <button class="btn" id="pinChange">Code ändern</button>
         <button class="btn ghost" id="pinLock">Jetzt sperren</button>
       </div>
-      <button class="btn ghost block hide" id="pinClear" style="margin-top:10px">Code entfernen</button>
+      <div class="btn-grid" style="margin-top:10px">
+        <button class="btn ghost" id="pinMaster">Master-Code ändern</button>
+        <button class="btn ghost hide" id="pinClear">Code entfernen</button>
+      </div>
     </div>
 
     <div class="section-title">Daten</div>
@@ -707,6 +710,7 @@ function loadSettings(){
        und vor dem ersten Firestore-Schnappschuss greift. */
     pinHash: typeof s.pinHash === "string" ? s.pinHash : "",
     pinLen: Math.max(0, Math.round(num(s.pinLen, 0))),
+    masterHash: typeof s.masterHash === "string" ? s.masterHash : "",
     /* Anzeige in Kästen. Gerechnet wird immer in Einzelflaschen. */
     showPacks: s.showPacks === undefined ? true : !!s.showPacks
   };
@@ -715,7 +719,8 @@ function saveSettings(){
   try {
     localStorage.setItem(LS_CFG, JSON.stringify({ fb: settings.fb, barId: settings.barId,
       warnDays: settings.warnDays, minPacks: settings.minPacks,
-      pinHash: settings.pinHash, pinLen: settings.pinLen, showPacks: settings.showPacks }));
+      pinHash: settings.pinHash, pinLen: settings.pinLen,
+      masterHash: settings.masterHash, showPacks: settings.showPacks }));
   } catch(_) {}
 }
 /* ---------------------------------------------------------------------
@@ -742,6 +747,18 @@ async function pinHash(pin){
   let h = 5381;
   for (let i = 0; i < txt.length; i++) h = ((h * 33) ^ txt.charCodeAt(i)) >>> 0;
   return "x" + h.toString(16);
+}
+
+/* Der Master-Code schützt das Ändern des Zugangscodes. Solange keiner
+   eingerichtet ist, lässt sich alles setzen – sonst käme niemand je an den
+   ersten heran. */
+function currentMasterHash(){
+  return (store.config && store.config.masterHash) || settings.masterHash || "";
+}
+function hasMaster(){ return !!currentMasterHash(); }
+async function masterOk(eingabe){
+  if (!hasMaster()) return true;
+  return (await pinHash(eingabe)) === currentMasterHash();
 }
 
 /* Maßgeblich ist der Hash aus der Datenbank; der lokale ist nur der zuletzt
@@ -854,6 +871,7 @@ function applyBarSettings(){
     settings.minPacks = Math.min(20, Math.max(0, Math.round(num(c.minPacks, 1))));
   settings.pinHash = (typeof c.pinHash === "string") ? c.pinHash : "";
   settings.pinLen = Math.max(0, Math.round(num(c.pinLen, 0)));
+  settings.masterHash = (typeof c.masterHash === "string") ? c.masterHash : "";
   saveSettings();
   /* Jetzt ist bekannt, ob und welcher Code gilt: aufsperren, wenn keiner
      eingerichtet ist oder dieses Gerät schon frei ist – sonst zusperren. */
@@ -866,7 +884,7 @@ async function saveBarSettings(){
     await store.set("settings", THRESHOLD_DOC, {
       warnDays: settings.warnDays, minPacks: settings.minPacks,
       pinHash: settings.pinHash || "", pinLen: settings.pinLen || 0,
-      at: new Date().toISOString()
+      masterHash: settings.masterHash || "", at: new Date().toISOString()
     });
   } catch(err){ console.error(err); toast("Schwelle konnte nicht geteilt werden"); }
 }
@@ -3254,14 +3272,7 @@ function renderMore(){
   $("#pinClear").classList.toggle("hide", !hatCode);
   $("#pinLock").disabled = !hatCode;
   $("#pinChange").textContent = hatCode ? "Code ändern" : "Code einrichten";
-  $("#pinStatus").innerHTML = '<div class="small muted" style="margin-bottom:12px">' +
-    (hatCode
-      ? 'Beim Öffnen wird ein Zahlencode abgefragt; jedes Gerät merkt ihn sich einmal. ' +
-        'Der Code steht <b>nicht</b> in der Seite, sondern in der Datenbank – Ändern wirkt ' +
-        'damit auf allen Geräten.'
-      : '<b>Kein Code eingerichtet.</b> Die Seite ist für jeden offen, der die Adresse kennt.') +
-    '<br><br>Das ist ein Riegel vor der Oberfläche, <b>kein echter Schutz</b> – ' +
-    'siehe den Hinweis unter „Datenbank“.</div>';
+  $("#pinMaster").textContent = hasMaster() ? "Master-Code ändern" : "Master-Code einrichten";
 
   /* Im Klartext, was die Schwelle bedeutet */
   const n = num(settings.minPacks, 0);
@@ -3436,7 +3447,8 @@ $("#cfgClear").addEventListener("click", () => {
     "Firebase-Konfiguration und Bar-ID werden auf diesem Gerät gelöscht. Die Daten in Firestore bleiben erhalten.",
     "Zurücksetzen", async () => {
       settings.fb = null; settings.barId = DEFAULT_BAR_ID; settings.warnDays = 7;
-      settings.minPacks = 1; settings.showPacks = true; settings.pinHash = ""; settings.pinLen = 0;
+      settings.minPacks = 1; settings.showPacks = true;
+      settings.pinHash = ""; settings.pinLen = 0; settings.masterHash = "";
       saveSettings(); await store.connect(); renderAll(); toast("Zurückgesetzt");
     });
 });
@@ -3451,14 +3463,39 @@ $("#cfgMinPacks").addEventListener("change", async () => {
     ? "Achtung ab " + qtyUnit(settings.minPacks, "Kästen").replace("1 Kästen", "1 Kasten")
     : "Kästen-Schwelle aus");
 });
+/* Feld für den Master-Code – nur nötig, wenn schon einer eingerichtet ist */
+function masterField(){
+  return hasMaster()
+    ? '<label class="fld"><span>Master-Code</span>' +
+      '<input type="password" id="pinM" inputmode="numeric" autocomplete="off" ' +
+      'placeholder="zum Freigeben"></label>'
+    : "";
+}
+async function masterGeprueft(el){
+  if (!hasMaster()) return true;
+  if (await masterOk($("#pinM", el).value.trim())) return true;
+  toast("Master-Code stimmt nicht");
+  return false;
+}
+
 $("#pinClear").addEventListener("click", () => {
-  askConfirm("Zugangscode entfernen?",
-    "Die Seite ist danach für jeden offen, der die Adresse kennt.",
-    "Entfernen", async () => {
-      settings.pinHash = ""; settings.pinLen = 0;
-      try { localStorage.removeItem(LS_UNLOCK); } catch(_){}
-      await saveBarSettings();
-      hideLock(); toast("Code entfernt"); renderAll();
+  sheet(
+    '<h3>Zugangscode entfernen</h3>' +
+    '<div class="small muted" style="margin-top:5px">Die Seite ist danach für jeden offen, ' +
+      'der die Adresse kennt.</div>' +
+    '<div style="margin-top:16px">' + masterField() + '</div>' +
+    '<div class="btn-grid"><button class="btn ghost" id="cNo">Abbrechen</button>' +
+    '<button class="btn danger" id="cYes">Entfernen</button></div>',
+    el => {
+      $("#cNo", el).onclick = closeSheet;
+      if (hasMaster()) $("#pinM", el).focus();
+      $("#cYes", el).onclick = async () => {
+        if (!(await masterGeprueft(el))) return;
+        settings.pinHash = ""; settings.pinLen = 0;
+        try { localStorage.removeItem(LS_UNLOCK); } catch(_){}
+        await saveBarSettings();
+        closeSheet(); hideLock(); toast("Code entfernt"); renderAll();
+      };
     });
 });
 
@@ -3469,11 +3506,11 @@ $("#pinLock").addEventListener("click", () => {
 
 $("#pinChange").addEventListener("click", () => {
   sheet(
-    '<h3>Zugangscode ändern</h3>' +
+    '<h3>' + (currentPinHash() ? "Zugangscode ändern" : "Zugangscode einrichten") + '</h3>' +
     '<div class="small muted" style="margin-top:5px">Gilt für alle Geräte, sobald sie ' +
-      'online sind. Mindestens vier Ziffern.</div>' +
-    '<div style="margin-top:16px">' +
-    '<label class="fld"><span>Neuer Code</span>' +
+      'online sind. Vier bis zwölf Ziffern.</div>' +
+    '<div style="margin-top:16px">' + masterField() +
+    '<label class="fld"><span>Neuer Zugangscode</span>' +
       '<input type="password" id="pin1" inputmode="numeric" autocomplete="new-password" placeholder="vier Ziffern"></label>' +
     '<label class="fld"><span>Noch einmal</span>' +
       '<input type="password" id="pin2" inputmode="numeric" autocomplete="new-password"></label>' +
@@ -3482,8 +3519,9 @@ $("#pinChange").addEventListener("click", () => {
     '<button class="btn primary" id="pinSave">Speichern</button></div>',
     el => {
       $("#pinCancel", el).onclick = closeSheet;
-      $("#pin1", el).focus();
+      $(hasMaster() ? "#pinM" : "#pin1", el).focus();
       $("#pinSave", el).onclick = async () => {
+        if (!(await masterGeprueft(el))) return;
         const a = $("#pin1", el).value.trim(), b = $("#pin2", el).value.trim();
         if (!/^\d{4,12}$/.test(a)) return toast("Vier bis zwölf Ziffern");
         if (a !== b) return toast("Die beiden Eingaben sind verschieden");
@@ -3496,6 +3534,38 @@ $("#pinChange").addEventListener("click", () => {
         toast(store.mode === "firebase" ? "Code geändert – gilt für alle Geräte"
                                         : "Code geändert – nur auf diesem Gerät");
         renderAll();
+      };
+    });
+});
+
+$("#pinMaster").addEventListener("click", () => {
+  sheet(
+    '<h3>' + (hasMaster() ? "Master-Code ändern" : "Master-Code einrichten") + '</h3>' +
+    '<div class="small muted" style="margin-top:5px">Mit ihm wird der Zugangscode ' +
+      'freigegeben – ohne ihn lässt er sich nicht ändern oder entfernen.</div>' +
+    '<div style="margin-top:16px">' +
+    (hasMaster()
+      ? '<label class="fld"><span>Bisheriger Master-Code</span>' +
+        '<input type="password" id="pinM" inputmode="numeric" autocomplete="off"></label>'
+      : "") +
+    '<label class="fld"><span>Neuer Master-Code</span>' +
+      '<input type="password" id="m1" inputmode="numeric" autocomplete="new-password" placeholder="vier Ziffern"></label>' +
+    '<label class="fld"><span>Noch einmal</span>' +
+      '<input type="password" id="m2" inputmode="numeric" autocomplete="new-password"></label>' +
+    '</div>' +
+    '<div class="btn-grid"><button class="btn ghost" id="mCancel">Abbrechen</button>' +
+    '<button class="btn primary" id="mSave">Speichern</button></div>',
+    el => {
+      $("#mCancel", el).onclick = closeSheet;
+      $(hasMaster() ? "#pinM" : "#m1", el).focus();
+      $("#mSave", el).onclick = async () => {
+        if (!(await masterGeprueft(el))) return;
+        const a = $("#m1", el).value.trim(), b = $("#m2", el).value.trim();
+        if (!/^\d{4,12}$/.test(a)) return toast("Vier bis zwölf Ziffern");
+        if (a !== b) return toast("Die beiden Eingaben sind verschieden");
+        settings.masterHash = await pinHash(a);
+        await saveBarSettings();
+        closeSheet(); toast("Master-Code gespeichert"); renderAll();
       };
     });
 });

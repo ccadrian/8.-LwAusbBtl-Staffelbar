@@ -304,6 +304,20 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:50;
 .tab.on{color:var(--fg)}
 .tab.on svg{stroke-width:1.9}
 
+/* ---------- Sperrbildschirm ---------- */
+.lock{position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;
+  align-items:center;justify-content:center;padding:24px}
+.lock-in{width:100%;max-width:330px;text-align:center}
+.lock-title{font-size:22px;font-weight:620;letter-spacing:-.03em}
+.lock-sub{font-size:14px;color:var(--fg-dim);margin-top:5px}
+.lock-dots{display:flex;justify-content:center;gap:11px;margin:26px 0 22px;min-height:14px}
+.lock-dots i{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--fg-faint)}
+.lock-dots i.on{background:var(--fg);box-shadow:none}
+.lock .pad{max-width:300px;margin:0 auto}
+.lock-msg{min-height:20px;margin-top:16px;font-size:13.5px;color:var(--fg-dim)}
+.lock-msg.bad{color:var(--fg);font-weight:550}
+.lock-foot{margin-top:18px;font-size:11.5px;color:var(--fg-faint);line-height:1.5}
+
 /* ---------- Zahlenblock ---------- */
 .modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.34);display:flex;
   align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
@@ -380,6 +394,26 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
 </style>
 </head>
 <body>
+
+<!-- Steht von Anfang an da und wird nur entfernt, wenn dieses Gerät schon
+     freigeschaltet ist. So blitzt die Oberfläche nie kurz auf. -->
+<div class="lock" id="lockScreen">
+  <div class="lock-in">
+    <div class="lock-title">Staffelbar</div>
+    <div class="lock-sub">Zugangscode eingeben</div>
+    <div class="lock-dots" id="lockDots"></div>
+    <div class="pad" id="lockPad">
+      <button data-d="1">1</button><button data-d="2">2</button><button data-d="3">3</button>
+      <button data-d="4">4</button><button data-d="5">5</button><button data-d="6">6</button>
+      <button data-d="7">7</button><button data-d="8">8</button><button data-d="9">9</button>
+      <button data-act="del" class="alt">&#9003;</button>
+      <button data-d="0">0</button>
+      <button data-act="ok" class="alt">&#10003;</button>
+    </div>
+    <div class="lock-msg" id="lockMsg"></div>
+    <div class="lock-foot" id="lockFoot">Schützt die Oberfläche vor neugierigen Blicken.</div>
+  </div>
+</div>
 
 <header class="top">
   <div class="top-in">
@@ -524,6 +558,16 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
       </label>
     </div>
 
+    <div class="section-title">Zugang</div>
+    <div class="card">
+      <div id="pinStatus"></div>
+      <div class="btn-grid">
+        <button class="btn" id="pinChange">Code ändern</button>
+        <button class="btn ghost" id="pinLock">Jetzt sperren</button>
+      </div>
+      <button class="btn ghost block hide" id="pinClear" style="margin-top:10px">Code entfernen</button>
+    </div>
+
     <div class="section-title">Daten</div>
     <div class="card">
       <label class="fld"><span>JSON-Backup einspielen</span>
@@ -659,6 +703,10 @@ function loadSettings(){
     /* Achtung, sobald von einer Sorte nur noch so viele Kästen da sind.
        0 schaltet die Regel ab. */
     minPacks: s.minPacks === undefined ? 1 : Math.max(0, Math.round(num(s.minPacks, 1))),
+    /* Zuletzt bekannter Zugangscode als Hash – damit die Sperre auch offline
+       und vor dem ersten Firestore-Schnappschuss greift. */
+    pinHash: typeof s.pinHash === "string" ? s.pinHash : "",
+    pinLen: Math.max(0, Math.round(num(s.pinLen, 0))),
     /* Anzeige in Kästen. Gerechnet wird immer in Einzelflaschen. */
     showPacks: s.showPacks === undefined ? true : !!s.showPacks
   };
@@ -666,9 +714,133 @@ function loadSettings(){
 function saveSettings(){
   try {
     localStorage.setItem(LS_CFG, JSON.stringify({ fb: settings.fb, barId: settings.barId,
-      warnDays: settings.warnDays, minPacks: settings.minPacks, showPacks: settings.showPacks }));
+      warnDays: settings.warnDays, minPacks: settings.minPacks,
+      pinHash: settings.pinHash, pinLen: settings.pinLen, showPacks: settings.showPacks }));
   } catch(_) {}
 }
+/* ---------------------------------------------------------------------
+   3b) Zugangscode
+
+   Was das leistet: Wer den QR-Code am Tresen scannt, sieht ohne Code nichts.
+   Was das nicht leistet: echten Schutz. Die Seite liegt öffentlich, der
+   geprüfte Hash steht darin, und vier Ziffern sind in Sekunden durchprobiert.
+   Die Daten selbst hängen ohnehin an offenen Firestore-Regeln – wer die
+   Projekt-ID kennt, kommt an ihnen vorbei. Wer mehr braucht, siehe README.
+   --------------------------------------------------------------------- */
+const LS_UNLOCK = "staffelbar.unlock.v1";
+
+async function pinHash(pin){
+  const txt = "staffelbar:" + String(pin == null ? "" : pin).trim();
+  try {
+    if (crypto.subtle && crypto.subtle.digest){
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+  } catch(_){}
+  /* Notnagel ohne Web Crypto (z. B. über http aufgerufen): kein echter Hash,
+     aber der Code steht wenigstens nicht im Klartext im Gerätespeicher. */
+  let h = 5381;
+  for (let i = 0; i < txt.length; i++) h = ((h * 33) ^ txt.charCodeAt(i)) >>> 0;
+  return "x" + h.toString(16);
+}
+
+/* Maßgeblich ist der Hash aus der Datenbank; der lokale ist nur der zuletzt
+   bekannte, damit die Sperre auch offline und vor dem ersten Schnappschuss
+   greift. Leer heißt: es ist kein Code eingerichtet. */
+function currentPinHash(){
+  return (store.config && store.config.pinHash) || settings.pinHash || "";
+}
+function unlockToken(){ try { return localStorage.getItem(LS_UNLOCK) || ""; } catch(_){ return ""; } }
+function isUnlocked(){ const h = currentPinHash(); return !h || unlockToken() === h; }
+function setUnlocked(hash){ try { localStorage.setItem(LS_UNLOCK, hash); } catch(_){} }
+
+let lockBuf = "";
+let lockTimer = null;
+
+function pinLength(){
+  const n = (store.config && num(store.config.pinLen, 0)) || settings.pinLen || 0;
+  return n >= 4 ? n : 0;              // 0 = Länge unbekannt, dann zählt der Haken
+}
+function drawLockDots(){
+  const box = $("#lockDots"); if (!box) return;
+  const len = pinLength();
+  const n = len || Math.max(4, lockBuf.length);
+  let out = "";
+  for (let i = 0; i < n; i++) out += '<i' + (i < lockBuf.length ? ' class="on"' : '') + '></i>';
+  box.innerHTML = out;
+}
+function lockSay(text, bad){
+  const m = $("#lockMsg"); if (!m) return;
+  m.textContent = text || "";
+  m.className = "lock-msg" + (bad ? " bad" : "");
+}
+function hideLock(){
+  const el = $("#lockScreen"); if (!el) return;
+  el.classList.add("hide");
+  document.body.style.overflow = "";
+  clearTimeout(lockTimer); lockTimer = null;
+}
+function showLock(){
+  const el = $("#lockScreen"); if (!el) return;
+  lockBuf = "";
+  el.classList.remove("hide");
+  drawLockDots();
+  document.body.style.overflow = "hidden";
+
+  /* Ein frisches Gerät kennt noch keinen Hash und muss auf die Datenbank
+     warten. Kommt sie nicht, darf niemand ausgesperrt bleiben – dann steht
+     hier ein ehrlicher Hinweis samt Ausweg. */
+  const wartet = !settings.pinHash && !(store.config && store.config.pinHash);
+  $("#lockPad").classList.toggle("hide", wartet);
+  const ok = $('#lockPad [data-act="ok"]');
+  if (ok) ok.classList.toggle("hide", !!pinLength());
+  lockSay(wartet ? "Verbindung wird geprüft…" : "");
+  clearTimeout(lockTimer);
+  if (wartet){
+    lockTimer = setTimeout(() => {
+      if (!currentPinHash()){
+        lockSay("Keine Verbindung – der Code lässt sich gerade nicht prüfen.");
+        const foot = $("#lockFoot");
+        if (foot) foot.innerHTML = '<button class="btn sm ghost" id="lockSkip">Ohne Code fortfahren</button>';
+        const skip = $("#lockSkip");
+        if (skip) skip.onclick = () => { hideLock(); toast("Ohne Code – es werden nur lokale Daten gezeigt"); };
+      }
+    }, 7000);
+  }
+}
+async function tryUnlock(explizit){
+  if ((await pinHash(lockBuf)) === currentPinHash()){
+    setUnlocked(currentPinHash());
+    hideLock();
+    return true;
+  }
+  if (explizit){
+    lockBuf = ""; drawLockDots();
+    lockSay("Falscher Code", true);
+  }
+  return false;
+}
+function initLock(){
+  const pad = $("#lockPad"); if (!pad) return;
+  pad.addEventListener("click", async e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.d != null){
+      const len = pinLength();
+      if (lockBuf.length >= (len || 12)) return;
+      lockBuf += b.dataset.d;
+      drawLockDots(); lockSay("");
+      /* Ist die Länge bekannt, wird geprüft, sobald sie erreicht ist – und
+         bei Fehlschlag sofort geleert. Sonst sammelte ein Tippfehler
+         weiter und jede folgende Eingabe wäre ebenfalls falsch. */
+      if (len && lockBuf.length === len) await tryUnlock(true);
+      return;
+    }
+    if (b.dataset.act === "del"){ lockBuf = lockBuf.slice(0, -1); drawLockDots(); return; }
+    if (b.dataset.act === "ok"){ await tryUnlock(true); return; }
+  });
+  if (isUnlocked()) hideLock(); else showLock();
+}
+
 /* Warnschwellen liegen in bars/<bar>/settings/thresholds, damit alle
    Telefone dieselbe Erinnerung sehen. Ohne Firestore bleibt es beim
    lokalen Wert. */
@@ -680,14 +852,21 @@ function applyBarSettings(){
     settings.warnDays = Math.min(90, Math.max(1, Math.round(num(c.warnDays, 7)) || 7));
   if (c.minPacks != null && Number.isFinite(Number(c.minPacks)))
     settings.minPacks = Math.min(20, Math.max(0, Math.round(num(c.minPacks, 1))));
+  settings.pinHash = (typeof c.pinHash === "string") ? c.pinHash : "";
+  settings.pinLen = Math.max(0, Math.round(num(c.pinLen, 0)));
   saveSettings();
+  /* Jetzt ist bekannt, ob und welcher Code gilt: aufsperren, wenn keiner
+     eingerichtet ist oder dieses Gerät schon frei ist – sonst zusperren. */
+  if (isUnlocked()) hideLock(); else showLock();
 }
 async function saveBarSettings(){
   saveSettings();
   if (store.mode !== "firebase") return;
   try {
     await store.set("settings", THRESHOLD_DOC, {
-      warnDays: settings.warnDays, minPacks: settings.minPacks, at: new Date().toISOString()
+      warnDays: settings.warnDays, minPacks: settings.minPacks,
+      pinHash: settings.pinHash || "", pinLen: settings.pinLen || 0,
+      at: new Date().toISOString()
     });
   } catch(err){ console.error(err); toast("Schwelle konnte nicht geteilt werden"); }
 }
@@ -3071,6 +3250,19 @@ function renderMore(){
   if (document.activeElement !== $("#cfgMinPacks")) $("#cfgMinPacks").value = settings.minPacks;
   $("#cfgPacks").checked = !!settings.showPacks;
 
+  const hatCode = !!currentPinHash();
+  $("#pinClear").classList.toggle("hide", !hatCode);
+  $("#pinLock").disabled = !hatCode;
+  $("#pinChange").textContent = hatCode ? "Code ändern" : "Code einrichten";
+  $("#pinStatus").innerHTML = '<div class="small muted" style="margin-bottom:12px">' +
+    (hatCode
+      ? 'Beim Öffnen wird ein Zahlencode abgefragt; jedes Gerät merkt ihn sich einmal. ' +
+        'Der Code steht <b>nicht</b> in der Seite, sondern in der Datenbank – Ändern wirkt ' +
+        'damit auf allen Geräten.'
+      : '<b>Kein Code eingerichtet.</b> Die Seite ist für jeden offen, der die Adresse kennt.') +
+    '<br><br>Das ist ein Riegel vor der Oberfläche, <b>kein echter Schutz</b> – ' +
+    'siehe den Hinweis unter „Datenbank“.</div>';
+
   /* Im Klartext, was die Schwelle bedeutet */
   const n = num(settings.minPacks, 0);
   $("#minPacksHint").innerHTML = n > 0
@@ -3244,7 +3436,7 @@ $("#cfgClear").addEventListener("click", () => {
     "Firebase-Konfiguration und Bar-ID werden auf diesem Gerät gelöscht. Die Daten in Firestore bleiben erhalten.",
     "Zurücksetzen", async () => {
       settings.fb = null; settings.barId = DEFAULT_BAR_ID; settings.warnDays = 7;
-      settings.minPacks = 1; settings.showPacks = true;
+      settings.minPacks = 1; settings.showPacks = true; settings.pinHash = ""; settings.pinLen = 0;
       saveSettings(); await store.connect(); renderAll(); toast("Zurückgesetzt");
     });
 });
@@ -3259,6 +3451,55 @@ $("#cfgMinPacks").addEventListener("change", async () => {
     ? "Achtung ab " + qtyUnit(settings.minPacks, "Kästen").replace("1 Kästen", "1 Kasten")
     : "Kästen-Schwelle aus");
 });
+$("#pinClear").addEventListener("click", () => {
+  askConfirm("Zugangscode entfernen?",
+    "Die Seite ist danach für jeden offen, der die Adresse kennt.",
+    "Entfernen", async () => {
+      settings.pinHash = ""; settings.pinLen = 0;
+      try { localStorage.removeItem(LS_UNLOCK); } catch(_){}
+      await saveBarSettings();
+      hideLock(); toast("Code entfernt"); renderAll();
+    });
+});
+
+$("#pinLock").addEventListener("click", () => {
+  try { localStorage.removeItem(LS_UNLOCK); } catch(_){}
+  showLock();
+});
+
+$("#pinChange").addEventListener("click", () => {
+  sheet(
+    '<h3>Zugangscode ändern</h3>' +
+    '<div class="small muted" style="margin-top:5px">Gilt für alle Geräte, sobald sie ' +
+      'online sind. Mindestens vier Ziffern.</div>' +
+    '<div style="margin-top:16px">' +
+    '<label class="fld"><span>Neuer Code</span>' +
+      '<input type="password" id="pin1" inputmode="numeric" autocomplete="new-password" placeholder="z. B. 0080"></label>' +
+    '<label class="fld"><span>Noch einmal</span>' +
+      '<input type="password" id="pin2" inputmode="numeric" autocomplete="new-password"></label>' +
+    '</div>' +
+    '<div class="btn-grid"><button class="btn ghost" id="pinCancel">Abbrechen</button>' +
+    '<button class="btn primary" id="pinSave">Speichern</button></div>',
+    el => {
+      $("#pinCancel", el).onclick = closeSheet;
+      $("#pin1", el).focus();
+      $("#pinSave", el).onclick = async () => {
+        const a = $("#pin1", el).value.trim(), b = $("#pin2", el).value.trim();
+        if (!/^\d{4,12}$/.test(a)) return toast("Vier bis zwölf Ziffern");
+        if (a !== b) return toast("Die beiden Eingaben sind verschieden");
+        const h = await pinHash(a);
+        settings.pinHash = h;
+        settings.pinLen = a.length;     // damit der Sperrbildschirm weiß, wann er prüfen soll
+        setUnlocked(h);                 // das eigene Gerät nicht aussperren
+        await saveBarSettings();
+        closeSheet();
+        toast(store.mode === "firebase" ? "Code geändert – gilt für alle Geräte"
+                                        : "Code geändert – nur auf diesem Gerät");
+        renderAll();
+      };
+    });
+});
+
 $("#cfgPacks").addEventListener("change", e => {
   settings.showPacks = e.target.checked;
   saveSettings(); renderAll();
@@ -3290,6 +3531,7 @@ window.addEventListener("online",  () => { store.status = store.mode === "fireba
 window.addEventListener("offline", () => { if (store.mode === "firebase") store.status = "offline"; renderAll(); });
 
 store.onChange(renderAll);
+initLock();
 restoreRound();
 renderAll();
 store.connect();

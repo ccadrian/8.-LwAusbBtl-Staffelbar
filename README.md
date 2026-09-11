@@ -35,6 +35,7 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 | **Erinnerung** | „Bald nachkaufen“ steht ganz oben auf der Startseite, sortiert nach Dringlichkeit – im Klartext: „nur noch 1 Kasten im Lager“. |
 | **Warnschwelle** | Unter **Mehr → Einstellungen** einstellbar, ab wie vielen Kästen ein Getränk als knapp gilt (Standard: 1 Kasten). Dazu wie bisher die Reichweite in Tagen. Beide Schwellen gelten für die **ganze Bar**, nicht nur für das Telefon, auf dem sie gesetzt wurden. |
 | **Verwalten** | Getränke anlegen, bearbeiten, löschen; Export als CSV und JSON; JSON-Backup einspielen. |
+| **Zugangscode** | Beim Öffnen fragt die Seite einen Zahlencode ab; jedes Gerät merkt ihn sich einmal. Der Code steht **nicht in der Seite**, sondern als Hash in der Datenbank – Ändern unter *Mehr → Zugang* wirkt damit auf allen Geräten. Siehe unten, was das leistet und was nicht. |
 | **QR-Code** | Wird im Tool selbst erzeugt (keine externe Bibliothek) und zeigt auf die eigene GitHub-Pages-URL. Direkt ausdruckbar für den Tresen. |
 
 ---
@@ -102,13 +103,39 @@ unter Settings → Pages.
 Die Daten liegen unter `bars/<bar-id>/…` in fünf Sammlungen: `drinks`
 (`packSize` = Flaschen je Kasten, `packName` = das Wort dafür), `counts`, `purchases`,
 `shopping` (die Einkaufsliste) und `settings` mit dem einzelnen Dokument
-`thresholds` (`warnDays`, `minPacks`). `qty` ist in allen Fällen die Menge in
-Einzelflaschen.
+`thresholds` (`warnDays`, `minPacks`, `pinHash`, `pinLen`). `qty` ist in allen
+Fällen die Menge in Einzelflaschen.
 
 > **Zur Sicherheit:** Ohne Login müssen die Regeln offen sein – wer die
 > Projekt-ID kennt, kann in `bars/staffelbar/…` lesen und schreiben. Alles
-> außerhalb dieses Pfads ist gesperrt. Wer es enger braucht, nutzt Firebase
-> App Check oder anonyme Anmeldung.
+> außerhalb dieses Pfads ist gesperrt.
+
+## Was der Zugangscode leistet – und was nicht
+
+**Er leistet:** Wer den QR-Code am Tresen scannt oder die Adresse zufällig
+kennt, sieht ohne Code nichts. Für den Zweck „nicht jeder soll darin
+herumklicken“ reicht das.
+
+**Er leistet nicht:** echten Schutz der Daten.
+
+- Gespeichert wird nur ein gesalzener SHA-256-Hash, und zwar im Dokument
+  `settings/thresholds`. Die Seite selbst enthält den Code nirgends – aber
+  dieses Dokument ist wie alle anderen öffentlich lesbar.
+- Vier Ziffern sind in Sekunden durchprobiert.
+- Vor allem: Die Daten hängen an den offenen Firestore-Regeln. Wer die
+  Projekt-ID aus dem Seitenquelltext nimmt, kommt an der Oberfläche
+  vorbei direkt an die Datenbank – der Code ändert daran nichts.
+
+**Wer echten Schutz braucht**, kommt an einer Anmeldung nicht vorbei:
+in der Firebase-Konsole unter *Authentication* die E-Mail/Passwort-Anmeldung
+aktivieren, ein gemeinsames Konto für die Bar anlegen und die Regel auf
+`allow read, write: if request.auth != null;` umstellen. Dann sind die Daten
+selbst geschützt, nicht nur die Oberfläche. Das ist der nächste sinnvolle
+Schritt, wenn es ernst wird.
+
+**Code vergessen?** In der Firebase-Konsole unter *Firestore → Daten →
+`bars/staffelbar/settings/thresholds`* das Feld `pinHash` leeren. Danach ist
+die Seite wieder offen und ein neuer Code lässt sich setzen.
 
 ---
 

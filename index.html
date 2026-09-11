@@ -2,6 +2,9 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
+<!-- Kein maximum-scale: Aufziehen mit zwei Fingern bleibt erlaubt (Barrierefreiheit).
+     Gegen den ungewollten Zoom beim Tippen wirken 16px-Eingabefelder und
+     touch-action:manipulation weiter unten im CSS. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
@@ -47,6 +50,13 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
+/* Kein automatisches Reinzoomen auf dem Telefon:
+   1. Doppeltipp-Zoom aus - beim schnellen Tippen auf dem Zahlenblock wertet
+      iOS zwei Ziffern sonst als Doppeltipp und vergroessert die Seite.
+   2. Jedes Eingabefeld mindestens 16px - darunter zoomt iOS Safari beim Fokus. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,input,select,textarea,label,a,.tab,.chip,.qty,.step-btn,.crow,.item,.alert,
+.pad button,.pad-quick button,.padfield{touch-action:manipulation}
 body{
   background:var(--bg);color:var(--fg);
   font:16px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;
@@ -119,13 +129,15 @@ section.view{padding-top:20px}
 label.fld{display:block;margin-bottom:16px}
 label.fld > span{display:block;font-size:12.5px;font-weight:500;color:var(--fg-dim);
   margin-bottom:7px;letter-spacing:-.006em}
-input[type=text],input[type=number],input[type=date],input[type=datetime-local],select,textarea{
+input[type=text],input[type=number],input[type=date],input[type=datetime-local],
+input[type=file],select,textarea{
   width:100%;min-height:48px;padding:12px 14px;border-radius:10px;background:var(--bg);
   border:1px solid var(--line-2);outline:none;transition:border-color .12s,box-shadow .12s;
+  font-size:16px;   /* nicht kleiner - sonst zoomt iOS beim Fokus rein */
 }
 input::placeholder,textarea::placeholder{color:var(--fg-faint)}
 input:focus,select:focus,textarea:focus{border-color:var(--fg);box-shadow:0 0 0 3.5px var(--ring)}
-textarea{min-height:88px;resize:vertical;font-size:13px;
+textarea{min-height:88px;resize:vertical;font-size:16px;line-height:1.45;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 select{appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--fg-dim) 50%),
@@ -182,6 +194,82 @@ select{appearance:none;
 .savebar .in{max-width:680px;margin:0 auto;pointer-events:auto}
 .savebar .btn{box-shadow:0 6px 24px rgba(0,0,0,.16)}
 
+/* ---------- Zaehlrunde: ein Getraenk nach dem anderen ---------- */
+.progress{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+.progress .p-bar{flex:1;height:4px;border-radius:2px;background:var(--card-2);overflow:hidden}
+.progress .p-bar > i{display:block;height:100%;background:var(--accent);transition:width .18s ease}
+.progress .p-txt{font-size:12px;color:var(--fg-faint);font-variant-numeric:tabular-nums;flex:none}
+
+.round-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:18px 16px;margin-bottom:12px}
+.round-cat{font-size:11px;text-transform:uppercase;letter-spacing:.075em;color:var(--fg-faint);
+  font-weight:600;margin-bottom:5px}
+.round-name{font-size:23px;font-weight:620;letter-spacing:-.03em;line-height:1.2}
+.round-last{font-size:13px;color:var(--fg-dim);margin-top:6px}
+
+/* Kaesten + Einzelflaschen nebeneinander */
+.padfields{display:flex;gap:9px;margin-top:15px}
+.padfield{flex:1;min-width:0;border-radius:11px;border:1px solid var(--line-2);background:var(--bg-2);
+  padding:9px 12px 10px;text-align:left;display:block}
+.padfield.on{border-color:var(--fg);background:var(--card);box-shadow:0 0 0 3px var(--ring)}
+.padfield .pf-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-faint);
+  font-weight:600}
+.padfield .pf-val{font-size:28px;font-weight:620;letter-spacing:-.035em;line-height:1.25;
+  font-variant-numeric:tabular-nums}
+.padfield.on .pf-val{color:var(--fg)}
+.padfield .pf-val.empty{color:var(--fg-faint)}
+.padtotal{margin-top:11px;font-size:13.5px;color:var(--fg-dim);text-align:center}
+.padtotal b{color:var(--fg);font-weight:600}
+
+.round-nav{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:12px}
+.round-foot{display:flex;gap:10px;margin-top:10px}
+.round-foot .btn{flex:1}
+
+/* Uebersicht: was ist gezaehlt, was fehlt noch */
+.tick{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--line);
+  border-radius:10px;margin-bottom:7px;background:var(--card);width:100%;text-align:left}
+.tick.cur{border-color:var(--fg)}
+.tick .t-mark{width:19px;height:19px;border-radius:50%;flex:none;border:1.5px solid var(--line-2);
+  display:grid;place-items:center;font-size:11px;color:var(--bg)}
+.tick.ok .t-mark{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.tick.skip .t-mark{border-style:dashed}
+.tick .t-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-weight:500;letter-spacing:-.014em}
+.tick .t-val{font-size:13px;color:var(--fg-dim);flex:none;font-variant-numeric:tabular-nums}
+
+/* ---------- Zusammenfassung nach der Zaehlung ---------- */
+.sum-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.sum-row:last-child{border-bottom:none}
+.sum-row .s-main{flex:1;min-width:0}
+.sum-row .s-name{font-weight:530;letter-spacing:-.014em;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.sum-row .s-sub{font-size:12px;color:var(--fg-faint);margin-top:2px}
+.sum-row .s-val{flex:none;font-weight:620;font-size:16px;letter-spacing:-.025em;
+  font-variant-numeric:tabular-nums}
+
+/* ---------- Einkaufsliste ---------- */
+.buyrow{display:flex;align-items:center;gap:12px;padding:12px 13px;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r);margin-bottom:8px}
+.buyrow.crit{border-color:var(--fg)}
+.buyrow .b-check{width:30px;height:30px;flex:none;border-radius:50%;border:1.5px solid var(--line-2);
+  display:grid;place-items:center;background:transparent;font-size:14px;color:var(--fg-dim)}
+.buyrow .b-check:active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.buyrow .b-main{flex:1;min-width:0}
+.buyrow .b-name{font-weight:540;letter-spacing:-.014em;display:flex;align-items:center;gap:7px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.buyrow .b-sub{font-size:12.5px;color:var(--fg-faint);margin-top:3px;line-height:1.4}
+.buyrow .b-qty{flex:none;text-align:right;line-height:1.1}
+.buyrow .b-qty b{display:block;font-size:16px;font-weight:620;letter-spacing:-.025em}
+.buyrow .b-qty span{font-size:10px;color:var(--fg-faint);text-transform:uppercase;letter-spacing:.06em}
+.buyrow .b-x{width:30px;height:30px;flex:none;border-radius:8px;color:var(--fg-faint);font-size:15px;
+  display:grid;place-items:center}
+
+/* ---------- Umschalter (Segmented) ---------- */
+.seg{display:inline-flex;padding:2px;border:1px solid var(--line-2);border-radius:9px;gap:2px}
+.seg button{min-height:32px;padding:0 12px;border-radius:7px;font-size:13px;font-weight:500;
+  color:var(--fg-dim)}
+.seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:560}
+
 /* ---------- Tab-Leiste ---------- */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:50;
   background:var(--bg);
@@ -216,6 +304,8 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:50;
 .pad-quick button{height:42px;border-radius:9px;background:var(--card-2);border:1px solid transparent;
   font-size:14.5px;font-weight:500;color:var(--fg-dim)}
 .pad-quick button:active{border-color:var(--line-2)}
+.pad-quick button.qlast{font-size:12px;white-space:nowrap;letter-spacing:-.01em}
+.pad button[disabled]{opacity:.3;pointer-events:none}
 
 /* ---------- Listen ---------- */
 .item{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--card);
@@ -283,35 +373,35 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
 
   <!-- ============ ZÄHLEN ============ -->
   <section class="view" id="v-count">
-    <div id="alertZone"></div>
 
-    <div class="section-title">Bestand zählen</div>
-    <input type="text" id="countSearch" placeholder="Getränk suchen…" autocomplete="off">
-    <div class="chips" id="countCats"></div>
-    <div id="countList"></div>
+    <!-- Zählrunde: ein Getränk nach dem anderen, mit Fortschritt -->
+    <div id="roundZone" class="hide"></div>
+
+    <!-- Startseite: Erinnerung, Zählrunde starten, Einzelzählung -->
+    <div id="countHome">
+      <div id="alertZone"></div>
+
+      <div class="section-title">Zählen</div>
+      <div class="card" id="roundStart"></div>
+
+      <div class="section-title">Einzeln nachzählen</div>
+      <input type="text" id="countSearch" placeholder="Getränk suchen…" autocomplete="off">
+      <div class="chips" id="countCats"></div>
+      <div id="countList"></div>
+    </div>
   </section>
 
-  <!-- ============ NACHKAUF ============ -->
-  <section class="view hide" id="v-buy">
-    <div class="section-title">Nachkauf / Lieferung eintragen</div>
-    <div class="card">
-      <label class="fld"><span>Getränk</span>
-        <select id="buyDrink"></select>
-      </label>
-      <label class="fld"><span>Menge (dazugekommen)</span>
-        <div class="stepper">
-          <button class="step-btn" id="buyMinus">&minus;</button>
-          <div class="qty set" id="buyQty">0 <span class="unit" id="buyUnit"></span></div>
-          <button class="step-btn" id="buyPlus">+</button>
-        </div>
-      </label>
-      <label class="fld"><span>Zeitpunkt</span>
-        <input type="datetime-local" id="buyAt">
-      </label>
-      <label class="fld"><span>Notiz (optional)</span>
-        <input type="text" id="buyNote" placeholder="z. B. Getränkemarkt, 2 Kästen">
-      </label>
-      <button class="btn primary block" id="buySave">Nachkauf speichern</button>
+  <!-- ============ EINKAUF ============ -->
+  <section class="view hide" id="v-shop">
+    <div class="section-title">Einkaufsliste</div>
+    <div id="shopList"></div>
+    <button class="btn block" id="shopAdd" style="margin-top:2px">+ Position hinzufügen</button>
+
+    <div class="section-title">Lieferung eintragen</div>
+    <div class="card tight">
+      <div class="small muted" style="margin-bottom:10px">Etwas geliefert bekommen, das nicht auf der
+        Liste stand? Hier direkt einbuchen – nur so bleibt der Verbrauch korrekt.</div>
+      <button class="btn block" id="buyOpen">Nachkauf erfassen</button>
     </div>
 
     <div class="section-title">Letzte Nachkäufe</div>
@@ -326,6 +416,13 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
     <div class="chips" id="statCats"></div>
 
     <div class="kpis" id="statKpis"></div>
+
+    <div class="row" style="margin-bottom:4px">
+      <div class="tiny faint">Mengen anzeigen als</div><div class="spacer"></div>
+      <div class="seg" id="statUnit">
+        <button data-packs="0">Einzeln</button><button data-packs="1">Gebinde</button>
+      </div>
+    </div>
 
     <div class="section-title">Beliebteste Getränke (Verbrauch)</div>
     <div class="card" id="statRank"></div>
@@ -387,7 +484,11 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
       <label class="fld"><span>Warnschwelle: Reichweite in Tagen</span>
         <input type="number" id="cfgWarnDays" min="1" max="90" step="1">
       </label>
-      <div class="small faint">Getränke, deren Bestand laut Hochrechnung nur noch für weniger als diese Anzahl Tage reicht, erscheinen oben in der Nachkauf-Erinnerung.</div>
+      <div class="small faint">Getränke, deren Bestand laut Hochrechnung nur noch für weniger als diese Anzahl Tage reicht, erscheinen oben in der Erinnerung und auf der Einkaufsliste.</div>
+      <hr class="sep">
+      <label class="sw"><input type="checkbox" id="cfgPacks">
+        <span>Mengen in Gebinden anzeigen<br><span class="small faint">z.&nbsp;B. „3 Kästen + 4 Flaschen“ statt „64 Flaschen“. Gerechnet wird immer in Einzelflaschen.</span></span>
+      </label>
     </div>
 
     <div class="section-title">Daten</div>
@@ -409,7 +510,7 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
 <nav class="tabs">
   <div class="tabs-in">
     <button class="tab on" data-view="count"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11.5l2.5 2.5L21 4.5"/><path d="M20.5 12v7a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2V5.5a2 2 0 0 1 2-2h10"/></svg>Zählen</button>
-    <button class="tab" data-view="buy"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v7.6M8.2 12h7.6"/></svg>Nachkauf</button>
+    <button class="tab" data-view="shop"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 4.5h2.2l2.1 10.2a1.8 1.8 0 0 0 1.8 1.4h7.6a1.8 1.8 0 0 0 1.8-1.4l1.3-6.4H6.3"/><circle cx="10" cy="20" r="1.3"/><circle cx="17.2" cy="20" r="1.3"/></svg>Einkauf</button>
     <button class="tab" data-view="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20.5h18"/><rect x="4.5" y="11" width="3.6" height="6.2" rx="1"/><rect x="10.2" y="6" width="3.6" height="11.2" rx="1"/><rect x="15.9" y="13.6" width="3.6" height="3.6" rx="1"/></svg>Statistik</button>
     <button class="tab" data-view="drinks"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h11l-1 13.2A3 3 0 0 1 13.5 19.5h-3a3 3 0 0 1-3-2.8z"/><path d="M7 9.5h10"/><path d="M9.5 21.5h5"/></svg>Getränke</button>
     <button class="tab" data-view="more"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5h9M17.5 8.5h2.5M4 15.5h3.5M12 15.5h8"/><circle cx="15" cy="8.5" r="2.2"/><circle cx="9.5" cy="15.5" r="2.2"/></svg>Mehr</button>
@@ -443,7 +544,7 @@ const FIREBASE_CONFIG = {
    Mehrere Bars im selben Firebase-Projekt: ?bar=zweite-bar an die URL hängen. */
 const DEFAULT_BAR_ID = "staffelbar";
 
-const APP_VERSION = "1.0";
+const APP_VERSION = "1.1";
 const SDK = "https://www.gstatic.com/firebasejs/10.13.2/";
 
 /* ---------------------------------------------------------------------
@@ -515,12 +616,15 @@ function loadSettings(){
   return {
     fb: s.fb && typeof s.fb === "object" ? s.fb : null,
     barId: (urlBar || s.barId || DEFAULT_BAR_ID).trim().replace(/[^\w\-]/g, "-") || DEFAULT_BAR_ID,
-    warnDays: num(s.warnDays, 7) || 7
+    warnDays: num(s.warnDays, 7) || 7,
+    /* Anzeige in Gebinden (Kästen). Gerechnet wird immer in Einzeleinheiten. */
+    showPacks: s.showPacks === undefined ? true : !!s.showPacks
   };
 }
 function saveSettings(){
   try {
-    localStorage.setItem(LS_CFG, JSON.stringify({ fb: settings.fb, barId: settings.barId, warnDays: settings.warnDays }));
+    localStorage.setItem(LS_CFG, JSON.stringify({ fb: settings.fb, barId: settings.barId,
+      warnDays: settings.warnDays, showPacks: settings.showPacks }));
   } catch(_) {}
 }
 function activeFbConfig(){
@@ -530,17 +634,32 @@ function activeFbConfig(){
 
 /* ---------------------------------------------------------------------
    4) Datenspeicher: Firestore, sonst lokaler Fallback
-   Dokumente:
-     drinks    { name, category, unit, minStock, createdAt }
-     counts    { drinkId, qty, at (ISO), session, note }
-     purchases { drinkId, qty, at (ISO), note }
+
+   Eine Regel für alles: **qty ist immer die Einzeleinheit** (Flasche, Dose, …).
+   Kästen sind reine Ein- und Ausgabe – sie werden beim Erfassen in Einzel-
+   einheiten umgerechnet und nie als eigene Größe gespeichert. Dadurch bleiben
+   Verbrauch, Ø-Werte und Vorhersage über alle Getränke hinweg vergleichbar,
+   auch wenn sich die Gebindegröße später ändert.
+
+   Dokumente unter bars/<barId>/… :
+     drinks    { name, category, unit, packSize, packName, minStock, createdAt }
+                 packSize = Einzeleinheiten je Gebinde (0/1 = kein Gebinde)
+                 packName = Singular des Gebindes, z. B. "Kasten"
+     counts    { drinkId, qty, packs, singles, at (ISO), session, note }
+                 qty      = Gesamtmenge in Einzeleinheiten (maßgeblich)
+                 packs/singles = wie es eingetippt wurde, nur zur Anzeige
+     purchases { drinkId, qty, packs, singles, at (ISO), note }
+     shopping  { kind, drinkId, name, qty, note, at (ISO) }
+                 kind "item" = selbst auf die Liste gesetzt
+                 kind "skip" = Vorschlag bis zur nächsten Zählung ausgeblendet
+
    Zählungen werden nie überschrieben – jede Zählung ist ein neues Dokument.
    --------------------------------------------------------------------- */
 const store = {
   mode: "local",          // "firebase" | "local"
   status: "init",         // init | online | offline | error | local
   error: "",
-  drinks: [], counts: [], purchases: [],
+  drinks: [], counts: [], purchases: [], shopping: [],
   _fs: null, _db: null, _unsub: [], _listeners: [], _cache: {}, _pending: {},
 
   /* noch nicht zum Server übertragene Änderungen */
@@ -616,6 +735,7 @@ const store = {
     bind("drinks", "drinks", "name", "asc", 500);
     bind("counts", "counts", "at", "desc", 4000);
     bind("purchases", "purchases", "at", "desc", 2000);
+    bind("shopping", "shopping", "at", "desc", 300);
   },
 
   /* ---- Schreiboperationen ---- */
@@ -671,19 +791,20 @@ const store = {
     this.drinks = Array.isArray(d.drinks) ? d.drinks : [];
     this.counts = Array.isArray(d.counts) ? d.counts : [];
     this.purchases = Array.isArray(d.purchases) ? d.purchases : [];
+    this.shopping = Array.isArray(d.shopping) ? d.shopping : [];
     this._sortLocal();
   },
   _saveLocal(){
     try {
       localStorage.setItem(this._lsKey(), JSON.stringify({
-        drinks: this.drinks, counts: this.counts, purchases: this.purchases
+        drinks: this.drinks, counts: this.counts, purchases: this.purchases, shopping: this.shopping
       }));
     } catch(e){ toast("Speicher voll – Export anlegen!"); }
   },
   _sortLocal(){
     this.drinks.sort((a,b) => String(a.name||"").localeCompare(String(b.name||""), "de"));
     const desc = (a,b) => String(b.at||"").localeCompare(String(a.at||""));
-    this.counts.sort(desc); this.purchases.sort(desc);
+    this.counts.sort(desc); this.purchases.sort(desc); this.shopping.sort(desc);
   }
 };
 
@@ -816,7 +937,7 @@ function alerts(){
 
     const crit = empty || (a.ok && a.daysLeft < limit/2) || (minStock > 0 && a.stock <= minStock/2);
     const sub = [];
-    sub.push("Bestand " + qtyUnit(a.stock, unitOf(a.drink)));
+    sub.push("Bestand " + qtyText(a.stock, a.drink, true));
     if (belowMin) sub.push("unter Mindestbestand " + fmt(minStock));
     if (a.ok) sub.push("Ø " + fmt(a.perDay, 2) + "/Tag");
     else if (a.lastCount) sub.push("keine Vorhersage");
@@ -835,13 +956,84 @@ function alerts(){
   });
   return out.sort((x, y) => (x.rank - y.rank) || (x.sort - y.sort));
 }
+
+/* Vorschlag, wie viel nachzukaufen ist – in Einzeleinheiten, aber auf volle
+   Gebinde aufgerundet, weil im Getränkemarkt ganze Kästen gekauft werden.
+   Zielbestand ist der Verbrauch der dreifachen Warnfrist; ohne belastbaren
+   Ø-Wert ersatzweise der doppelte Mindestbestand. */
+function suggestBuy(a){
+  const d = a && a.drink; if (!d) return 0;
+  const ps = packSize(d);
+  const stock = Math.max(0, num(a.stock));
+  const minStock = num(d.minStock, 0);
+  let target = 0;
+  if (a.ok && a.perDay > 0) target = a.perDay * settings.warnDays * 3;
+  if (minStock > 0) target = Math.max(target, minStock * 2);
+  let need = target - stock;
+  if (!(need > 0)) need = ps || 1;
+  return ps ? Math.ceil(need / ps) * ps : Math.ceil(need);
+}
+/* ---------------------------------------------------------------------
+   5b) Gebinde: Kästen als Ein-/Ausgabe, gerechnet wird in Einzeleinheiten
+
+   packSize = wie viele Einzeleinheiten in einem Gebinde stecken (20 Flaschen
+   je Kasten). 0 oder 1 heißt: das Getränk hat kein Gebinde. Gespeichert wird
+   immer nur die Gesamtzahl der Einzeleinheiten – die Aufteilung in Kästen
+   entsteht erst bei der Anzeige und lässt sich jederzeit umstellen.
+   --------------------------------------------------------------------- */
+
 /* "1 Flaschen" vermeiden */
-const SINGULAR = { Flaschen:"Flasche", Dosen:"Dose", Kästen:"Kasten", Fässer:"Fass", Gläser:"Glas", Kisten:"Kiste", Packungen:"Packung" };
+const SINGULAR = { Flaschen:"Flasche", Dosen:"Dose", Kästen:"Kasten", Fässer:"Fass",
+  Gläser:"Glas", Kisten:"Kiste", Packungen:"Packung", Liter:"Liter", Stk:"Stk" };
+const PACK_PLURAL = { Kasten:"Kästen", Kiste:"Kisten", Karton:"Kartons", Palette:"Paletten",
+  Träger:"Träger", Gebinde:"Gebinde", Fass:"Fässer", Pack:"Packs", Sixpack:"Sixpacks",
+  Packung:"Packungen", Rolle:"Rollen" };
+
+function unitOf(d){ return (d && d.unit) ? d.unit : "Stk"; }
 function qtyUnit(n, unit){
   const u = (n === 1 && SINGULAR[unit]) ? SINGULAR[unit] : unit;
   return fmt(n) + " " + u;
 }
-function unitOf(d){ return (d && d.unit) ? d.unit : "Stk"; }
+
+/* Einzeleinheiten je Gebinde; 0 = das Getränk wird nur einzeln geführt */
+function packSize(d){ const n = num(d && d.packSize, 0); return n > 1 ? Math.round(n) : 0; }
+function packOne(d){ return (d && d.packName) ? d.packName : "Kasten"; }
+function packMany(d){ const o = packOne(d); return PACK_PLURAL[o] || o; }
+function packWord(n, d){ return n === 1 ? packOne(d) : packMany(d); }
+
+/* Gesamtmenge -> { packs, rest }; null, wenn das Getränk kein Gebinde hat */
+function splitPack(qty, d){
+  const ps = packSize(d);
+  if (!ps) return null;
+  const total = Math.max(0, num(qty));
+  const packs = Math.floor(total / ps);
+  return { packs, rest: Math.round((total - packs * ps) * 100) / 100, size: ps };
+}
+function toBase(packs, singles, d){
+  return Math.round((num(packs) * (packSize(d) || 0) + num(singles)) * 100) / 100;
+}
+
+/* Menge so anzeigen, wie sie am Tresen gedacht wird.
+   long = Einheit ausschreiben ("3 Kästen + 4 Flaschen" statt "3 Kästen + 4"). */
+function qtyText(qty, d, long){
+  const sp = settings.showPacks ? splitPack(qty, d) : null;
+  if (!sp || (sp.packs === 0 && sp.rest === 0 && num(qty) !== 0)) return qtyUnit(num(qty), unitOf(d));
+  if (sp.packs === 0) return qtyUnit(sp.rest, unitOf(d));
+  const head = fmt(sp.packs) + " " + packWord(sp.packs, d);
+  if (sp.rest === 0) return head;
+  return head + " + " + (long ? qtyUnit(sp.rest, unitOf(d)) : fmt(sp.rest));
+}
+/* Wie qtyText, hängt aber die Gesamtzahl an, wo sie gebraucht wird */
+function qtyFull(qty, d){
+  const t = qtyText(qty, d, true);
+  const sp = settings.showPacks ? splitPack(qty, d) : null;
+  return (sp && sp.packs > 0) ? t + " (" + qtyUnit(num(qty), unitOf(d)) + ")" : t;
+}
+/* Zeile fürs Gebinde, z. B. "1 Kasten = 20 Flaschen" */
+function packHint(d){
+  const ps = packSize(d);
+  return ps ? "1 " + packOne(d) + " = " + qtyUnit(ps, unitOf(d)) : "";
+}
 
 /* Verbrauch je Getränk in einem Zeitraum (für Ranking) */
 function consumptionInRange(days, category){
@@ -883,13 +1075,13 @@ function stockSeries(drinkId, days){
    6) Grundgerüst der Oberfläche: Tabs, Sheets, Zahlenblock
    --------------------------------------------------------------------- */
 let view = "count";
-const rerender = { count: renderCount, buy: renderBuy, stats: renderStats, drinks: renderDrinks, more: renderMore };
+const rerender = { count: renderCount, shop: renderShop, stats: renderStats, drinks: renderDrinks, more: renderMore };
 
 function setView(v){
   view = v;
   $$(".view").forEach(s => s.classList.toggle("hide", s.id !== "v-" + v));
   $$(".tab").forEach(t => t.classList.toggle("on", t.dataset.view === v));
-  $("#saveBar").classList.toggle("hide", v !== "count" || !hasPending());
+  $("#saveBar").classList.toggle("hide", v !== "count" || round.active || !hasPending());
   window.scrollTo(0, 0);
   renderAll();
 }
@@ -920,52 +1112,116 @@ function askConfirm(title, text, okLabel, onOk){
     });
 }
 
-/* --- Zahlenblock: große Tasten, fürs Zählen im Stehen --- */
-function keypad(opts){
-  // opts: { title, sub, unit, value, onOk }
-  let buf = (opts.value === "" || opts.value == null) ? "" : String(opts.value).replace(".", ",");
-  const quick = opts.quick || [0, 1, 6, 12];
-  sheet(
-    '<h3>' + esc(opts.title) + '</h3>' +
-    '<div class="small muted">' + esc(opts.sub || "") + '</div>' +
-    '<div class="pad-display" id="padD"><span id="padV">0</span><span class="unit">' + esc(opts.unit || "") + '</span></div>' +
-    '<div class="pad-quick">' + quick.map(q => '<button data-q="' + q + '">' + q + '</button>').join("") + '</div>' +
+/* --- Mengen-Eingabe: Gebinde-Felder + großer Zahlenblock -------------
+   Ein Bauteil für alles, was eine Menge erfasst: Zählrunde, Einzel-
+   zählung, Nachkauf, Einkaufsliste. Hat ein Getränk ein Gebinde, gibt es
+   zwei Felder (Kästen / Einzelflaschen); der Zahlenblock füllt immer das
+   angetippte Feld. Gerechnet wird am Ende in Einzeleinheiten.
+   packs/singles bleiben Strings, damit "noch nichts eingetippt" und
+   "ausdrücklich 0" unterscheidbar sind. */
+function padState(d, baseQty){
+  const st = { packs:"", singles:"", field: packSize(d) ? "packs" : "singles", touched:false, last:null };
+  if (baseQty != null && baseQty !== ""){
+    const sp = splitPack(baseQty, d);
+    if (sp){ st.packs = String(sp.packs); st.singles = String(sp.rest).replace(".", ","); }
+    else st.singles = String(baseQty).replace(".", ",");
+    st.touched = true;
+  }
+  return st;
+}
+function padValue(d, st){ return toBase(parseNum(st.packs || 0), parseNum(st.singles || 0), d); }
+
+function padHtml(d, st){
+  const ps = packSize(d);
+  const field = (key, lbl, val) =>
+    '<button class="padfield' + (st.field === key ? " on" : "") + '" data-field="' + key + '">' +
+      '<span class="pf-lbl">' + esc(lbl) + '</span>' +
+      '<span class="pf-val' + (val === "" ? " empty" : "") + '">' + esc(val === "" ? "0" : val) + '</span>' +
+    '</button>';
+  const fields = ps
+    ? field("packs", packMany(d), st.packs) + field("singles", unitOf(d), st.singles)
+    : field("singles", unitOf(d), st.singles);
+
+  const total = padValue(d, st);
+  const totalLine = ps
+    ? '<div class="padtotal">macht <b>' + esc(qtyUnit(total, unitOf(d))) + '</b>' +
+      ' <span class="faint">· ' + esc(packHint(d)) + '</span></div>'
+    : "";
+
+  /* vier Schnelltasten: mit vorheriger Zählung eine davon als "wie zuletzt" */
+  const nums = st.field === "packs" ? [0, 1, 2, 5] : [0, 1, 6, 12];
+  const btn = q => '<button data-q="' + q + '">' + q + '</button>';
+  const quick = st.last != null
+    ? '<button data-q="last" class="qlast">wie zuletzt</button>' + nums.slice(0, 3).map(btn).join("")
+    : nums.map(btn).join("");
+
+  return '<div class="padfields">' + fields + '</div>' + totalLine +
+    '<div class="pad-quick" style="margin-top:12px">' + quick + '</div>' +
     '<div class="pad">' +
       [1,2,3,4,5,6,7,8,9].map(n => '<button data-d="' + n + '">' + n + '</button>').join("") +
-      '<button data-d="," class="alt">,</button><button data-d="0">0</button>' +
+      '<button data-d="," class="alt"' + (st.field === "packs" ? " disabled" : "") + '>,</button>' +
+      '<button data-d="0">0</button>' +
       '<button data-act="del" class="alt">&#9003;</button>' +
-    '</div>' +
-    '<div class="btn-grid" style="margin-top:10px">' +
+    '</div>';
+}
+
+/* Gibt true zurück, wenn sich etwas geändert hat und neu gezeichnet werden muss */
+function padClick(e, d, st){
+  const b = e.target.closest("button"); if (!b) return false;
+  if (b.dataset.field){ st.field = b.dataset.field; return true; }
+  if (b.dataset.d != null){
+    const cur = st[st.field], dg = b.dataset.d;
+    if (dg === ","){
+      if (st.field === "packs") return true;          // halbe Kästen gibt es nicht
+      if (cur.includes(",") || cur === "") return true;
+    }
+    if (cur.replace(/[^\d]/g, "").length >= 5) return true;
+    st[st.field] = cur + dg; st.touched = true; return true;
+  }
+  if (b.dataset.q != null){
+    if (b.dataset.q === "last"){
+      if (st.last == null) return true;
+      const sp = splitPack(st.last, d);
+      if (sp){ st.packs = String(sp.packs); st.singles = String(sp.rest).replace(".", ","); }
+      else st.singles = String(st.last).replace(".", ",");
+    } else st[st.field] = b.dataset.q;
+    st.touched = true; return true;
+  }
+  if (b.dataset.act === "del"){ st[st.field] = st[st.field].slice(0, -1); st.touched = true; return true; }
+  return false;
+}
+
+/* Menge in einem Sheet erfassen – ohne zweites Modal darüber */
+function qtySheet(opts){
+  const d = opts.drink;
+  const st = padState(d, opts.value);
+  st.last = opts.last == null ? null : opts.last;
+  sheet(
+    '<h3>' + esc(opts.title) + '</h3>' +
+    (opts.sub ? '<div class="small muted">' + esc(opts.sub) + '</div>' : "") +
+    '<div id="padBody" style="margin-top:14px">' + padHtml(d, st) + '</div>' +
+    '<div class="btn-grid" style="margin-top:12px">' +
       '<button class="btn ghost" data-act="cancel">Abbrechen</button>' +
-      '<button class="btn primary" data-act="ok">Übernehmen</button></div>',
+      '<button class="btn primary" data-act="ok">' + esc(opts.okLabel || "Übernehmen") + '</button></div>',
     el => {
-      const show = () => { $("#padV", el).textContent = buf === "" ? "0" : buf; };
-      show();
       el.addEventListener("click", e => {
-        const b = e.target.closest("button"); if (!b) return;
-        if (b.dataset.d != null){
-          const d = b.dataset.d;
-          if (d === "," && (buf.includes(",") || buf === "")) return;
-          if (buf.replace(/[^\d]/g, "").length >= 6) return;
-          buf += d; show(); return;
-        }
-        if (b.dataset.q != null){ buf = b.dataset.q; show(); return; }
-        const act = b.dataset.act;
-        if (act === "del"){ buf = buf.slice(0, -1); show(); return; }
-        if (act === "cancel"){ closeSheet(); return; }
-        if (act === "ok"){
-          const v = buf === "" ? 0 : parseNum(buf);
-          closeSheet(); opts.onOk(v, buf !== "");
-        }
+        const b = e.target.closest("button");
+        if (b && b.dataset.act === "cancel"){ closeSheet(); return; }
+        if (b && b.dataset.act === "ok"){ closeSheet(); opts.onOk(padValue(d, st), st.touched); return; }
+        if (padClick(e, d, st)) $("#padBody", el).innerHTML = padHtml(d, st);
       });
     });
 }
 
 /* ---------------------------------------------------------------------
-   7) Zählen
+   7) Zählen – geführte Runde und Einzelzählung
+
+   Beides schreibt in denselben Zwischenspeicher `pending`; gespeichert
+   wird einmal, als eine Zählung mit gemeinsamer session-Kennung.
    --------------------------------------------------------------------- */
-const pending = new Map();      // drinkId -> Menge (noch nicht gespeichert)
+const pending = new Map();      // drinkId -> Menge in Einzeleinheiten (noch nicht gespeichert)
 let countFilter = { cat: "", q: "" };
+const round = { active:false, order:[], idx:0, cat:"", overview:false, st:null, stFor:"" };
 
 function hasPending(){ return pending.size > 0; }
 
@@ -980,13 +1236,192 @@ function chipRow(el, items, active, onPick){
   el.onclick = e => { const c = e.target.closest(".chip"); if (c) onPick(c.dataset.v); };
 }
 
+/* Zuletzt gespeicherte Zählrunde (gleiche session-Kennung) */
+function lastSession(){
+  if (!store.counts.length) return null;
+  const first = store.counts[0];
+  const sess = first.session || "";
+  return { at: first.at, n: sess ? store.counts.filter(c => c.session === sess).length : 1 };
+}
+
+/* ---- Zählrunde steuern ---- */
+function roundOrder(cat){
+  return store.drinks.filter(d => !cat || d.category === cat)
+    .slice()
+    .sort((a, b) =>
+      String(a.category || "￿").localeCompare(String(b.category || "￿"), "de") ||
+      String(a.name || "").localeCompare(String(b.name || ""), "de"))
+    .map(d => d.id);
+}
+function startRound(cat){
+  const order = roundOrder(cat);
+  if (!order.length) return toast("Keine Getränke in dieser Auswahl");
+  round.active = true; round.order = order; round.idx = 0; round.cat = cat || "";
+  round.overview = false; round.st = null; round.stFor = "";
+  setView("count");
+}
+function endRound(){
+  round.active = false; round.st = null; round.stFor = ""; round.overview = false;
+  renderAll();
+}
+function roundState(){
+  const id = round.order[round.idx];
+  if (round.stFor !== id){
+    const d = drinkById(id);
+    const a = analyze(id);
+    round.st = padState(d, pending.has(id) ? pending.get(id) : null);
+    round.st.last = a.lastCount ? num(a.lastCount.qty) : null;
+    round.stFor = id;
+  }
+  return round.st;
+}
+function roundCommit(){
+  const id = round.order[round.idx], d = drinkById(id), st = round.st;
+  if (!d || !st || !st.touched) return false;
+  pending.set(id, padValue(d, st));
+  return true;
+}
+function roundGo(delta, commit){
+  if (commit) roundCommit();
+  round.idx = Math.max(0, Math.min(round.order.length, round.idx + delta));
+  round.stFor = "";
+  window.scrollTo(0, 0);
+  renderAll();
+}
+function roundJump(i){
+  roundCommit();
+  round.idx = i; round.stFor = ""; round.overview = false;
+  window.scrollTo(0, 0);
+  renderAll();
+}
+
+function renderRound(){
+  const zone = $("#roundZone");
+  /* zwischenzeitlich gelöschte Getränke aus der Runde nehmen */
+  round.order = round.order.filter(id => drinkById(id));
+  if (!round.order.length){ endRound(); return; }
+  if (round.idx > round.order.length) round.idx = round.order.length;
+
+  const total = round.order.length;
+  const counted = round.order.filter(id => pending.has(id)).length;
+  const bar = '<div class="progress"><div class="p-bar"><i style="width:' +
+    Math.round((Math.min(round.idx, total) / total) * 100) + '%"></i></div>' +
+    '<div class="p-txt">' + counted + " / " + total + ' gezählt</div></div>';
+
+  /* --- Übersicht: was ist erledigt, was fehlt --- */
+  if (round.overview){
+    zone.innerHTML = bar +
+      '<div class="section-title" style="margin-top:0">Übersicht</div>' +
+      round.order.map((id, i) => {
+        const d = drinkById(id), has = pending.has(id);
+        return '<button class="tick' + (has ? " ok" : "") + (i === round.idx ? " cur" : "") +
+          '" data-jump="' + i + '">' +
+          '<span class="t-mark">' + (has ? "&#10003;" : "") + '</span>' +
+          '<span class="t-name">' + esc(d.name) + '</span>' +
+          '<span class="t-val">' + (has ? esc(qtyText(pending.get(id), d)) : "offen") + '</span></button>';
+      }).join("") +
+      '<div class="round-foot"><button class="btn" data-act="close-ov">Zurück zum Zählen</button></div>';
+    return;
+  }
+
+  /* --- Abschluss der Runde --- */
+  if (round.idx >= total){
+    const missing = round.order.filter(id => !pending.has(id));
+    zone.innerHTML = bar +
+      '<div class="round-card">' +
+        '<div class="round-cat">Runde durch</div>' +
+        '<div class="round-name">' + counted + " von " + total + ' gezählt</div>' +
+        '<div class="round-last">' + (missing.length
+          ? missing.length + " Getränk" + (missing.length > 1 ? "e wurden" : " wurde") + " übersprungen – " +
+            "das ist in Ordnung, dafür wird nur kein Verbrauch berechnet."
+          : "Alles erfasst.") + '</div>' +
+      '</div>' +
+      (missing.length
+        ? '<div class="section-title">Noch offen</div>' +
+          missing.map(id => {
+            const i = round.order.indexOf(id);
+            return '<button class="tick skip" data-jump="' + i + '">' +
+              '<span class="t-mark"></span><span class="t-name">' + esc(drinkById(id).name) + '</span>' +
+              '<span class="t-val">nachtragen</span></button>';
+          }).join("")
+        : "") +
+      '<div style="margin-top:14px">' +
+        '<button class="btn primary block" data-act="save"' + (counted ? "" : " disabled") + '>' +
+          (counted ? "Zählung speichern (" + counted + ")" : "Nichts zu speichern") + '</button>' +
+      '</div>' +
+      '<div class="round-foot">' +
+        '<button class="btn" data-act="back">Zurück</button>' +
+        '<button class="btn ghost" data-act="abort">Runde abbrechen</button>' +
+      '</div>';
+    return;
+  }
+
+  /* --- ein Getränk --- */
+  const id = round.order[round.idx], d = drinkById(id), a = analyze(id), st = roundState();
+  const last = a.lastCount
+    ? "zuletzt " + qtyText(num(a.lastCount.qty), d, true) + " · " + relDays(a.lastCount.at) +
+      (a.boughtAfter ? " · seitdem +" + qtyText(a.boughtAfter, d) + " geliefert" : "")
+    : "noch nie gezählt";
+
+  zone.innerHTML = bar +
+    '<div class="round-card">' +
+      '<div class="round-cat">' + esc(d.category || "ohne Kategorie") + ' · ' + (round.idx + 1) + " von " + total + '</div>' +
+      '<div class="round-name">' + esc(d.name) + '</div>' +
+      '<div class="round-last">' + esc(last) + '</div>' +
+      '<div id="padBody">' + padHtml(d, st) + '</div>' +
+    '</div>' +
+    '<div class="round-nav">' +
+      '<button class="btn" data-act="skip">Überspringen</button>' +
+      '<button class="btn primary" data-act="next">' +
+        (round.idx === total - 1 ? "Weiter zum Abschluss" : "Weiter") + '</button>' +
+    '</div>' +
+    '<div class="round-foot">' +
+      '<button class="btn ghost sm" data-act="prev"' + (round.idx ? "" : " disabled") + '>Zurück</button>' +
+      '<button class="btn ghost sm" data-act="overview">Übersicht (' + counted + "/" + total + ')</button>' +
+      '<button class="btn ghost sm" data-act="abort">Abbrechen</button>' +
+    '</div>';
+}
+
+$("#roundZone").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  const jump = b.dataset.jump;
+  if (jump != null){ roundJump(Number(jump)); return; }
+  const act = b.dataset.act;
+  if (act === "next"){ roundGo(1, true); return; }
+  if (act === "skip"){ pending.delete(round.order[round.idx]); roundGo(1, false); return; }
+  if (act === "prev"){ roundGo(-1, true); return; }
+  if (act === "back"){ roundGo(-1, false); return; }
+  if (act === "overview"){ roundCommit(); round.overview = true; renderAll(); return; }
+  if (act === "close-ov"){ round.overview = false; renderAll(); return; }
+  if (act === "save"){ saveCounts(); return; }
+  if (act === "abort"){
+    if (!pending.size) return endRound();
+    askConfirm("Runde abbrechen?", pending.size + " erfasste Menge(n) gehen verloren.",
+      "Verwerfen", () => { pending.clear(); endRound(); });
+    return;
+  }
+  /* sonst: Eingabe im Zahlenblock */
+  const d = drinkById(round.order[round.idx]);
+  if (d && round.st && padClick(e, d, round.st)){
+    const body = $("#padBody", $("#roundZone"));
+    if (body) body.innerHTML = padHtml(d, round.st);
+  }
+});
+
+/* ---- Startseite des Zähl-Tabs ---- */
 function renderCount(){
-  /* Nachkauf-Erinnerung ganz oben */
+  const rz = $("#roundZone");
+  rz.classList.toggle("hide", !round.active);
+  $("#countHome").classList.toggle("hide", round.active);
+  if (round.active){ renderRound(); return; }
+  rz.innerHTML = "";        // kein totes Markup stehen lassen (doppelte IDs)
+
+  /* Erinnerung ganz oben */
   const al = alerts();
   const zone = $("#alertZone");
   if (!al.length){
     zone.innerHTML = store.drinks.length
-      ? '<div class="banner">Alles ausreichend bevorratet – keine Nachkäufe nötig.</div>'
+      ? '<div class="banner">Alles ausreichend bevorratet – nichts nachzukaufen.</div>'
       : '<div class="banner">Noch keine Getränke angelegt. Unter <b>Getränke</b> das erste hinzufügen.</div>';
   } else {
     zone.innerHTML =
@@ -999,14 +1434,38 @@ function renderCount(){
         '</div>').join("");
   }
 
-  /* Kategorie-Filter */
+  /* Zählrunde starten */
   const cats = categories();
+  const ls = lastSession();
+  const startBox = $("#roundStart");
+  if (!store.drinks.length){
+    startBox.innerHTML = '<div class="small muted">Sobald Getränke angelegt sind, lässt sich hier eine ' +
+      'Zählrunde starten – ein Getränk nach dem anderen, mit Fortschrittsanzeige.</div>';
+  } else {
+    startBox.innerHTML =
+      (pending.size
+        ? '<div class="banner" style="margin-bottom:12px"><div><b>' + pending.size +
+          ' Menge(n) erfasst, noch nicht gespeichert.</b> Unten speichern oder verwerfen.</div></div>'
+        : "") +
+      '<div class="small muted" style="margin-bottom:12px">' +
+        (ls ? "Zuletzt gezählt " + esc(relDays(ls.at)) + " (" + ls.n + " Getränk" + (ls.n > 1 ? "e" : "") + ")."
+            : "Noch keine Zählung gespeichert.") +
+      '</div>' +
+      '<button class="btn primary block" data-start="">Zählrunde starten · ' + store.drinks.length + ' Getränke</button>' +
+      (cats.length > 1
+        ? '<div class="tiny faint" style="margin:12px 0 7px">Oder nur eine Kategorie:</div>' +
+          '<div class="chips" style="padding-bottom:0">' + cats.map(c =>
+            '<button class="chip" data-start="' + esc(c) + '">' + esc(c) + ' (' +
+            store.drinks.filter(d => d.category === c).length + ')</button>').join("") + '</div>'
+        : "");
+  }
+
+  /* Einzelzählung */
   chipRow($("#countCats"),
     [{ v:"", l:"Alle" }].concat(cats.map(c => ({ v:c, l:c }))),
     countFilter.cat, v => { countFilter.cat = v; renderCount(); });
   $("#countCats").classList.toggle("hide", cats.length === 0);
 
-  /* Getränkeliste */
   const q = countFilter.q.trim().toLowerCase();
   const list = store.drinks.filter(d =>
     (!countFilter.cat || d.category === countFilter.cat) &&
@@ -1021,19 +1480,20 @@ function renderCount(){
     target.innerHTML = list.map(d => {
       const a = ana[d.id] || {};
       const has = pending.has(d.id);
-      const val = has ? pending.get(d.id) : null;
       const meta = a.lastCount
-        ? "zuletzt " + qtyUnit(num(a.lastCount.qty), unitOf(d)) + " · " + relDays(a.lastCount.at) +
-          (a.boughtAfter ? " · +" + fmt(a.boughtAfter) + " nachgekauft" : "")
+        ? "zuletzt " + qtyText(num(a.lastCount.qty), d, true) + " · " + relDays(a.lastCount.at) +
+          (a.boughtAfter ? " · +" + qtyText(a.boughtAfter, d) + " geliefert" : "")
         : "noch nie gezählt";
       return '<div class="crow' + (has ? " done" : "") + '" data-id="' + esc(d.id) + '">' +
         '<div class="crow-head"><div class="crow-name">' + esc(d.name) + '</div>' +
-        (d.category ? '<span class="badge">' + esc(d.category) + '</span>' : '') + '</div>' +
+        (packSize(d) ? '<span class="badge">' + esc(packHint(d)) + '</span>' : "") + '</div>' +
         '<div class="crow-meta">' + esc(meta) + '</div>' +
         '<div class="stepper">' +
           '<button class="step-btn" data-act="minus">&minus;</button>' +
           '<div class="qty' + (has ? " set" : "") + '" data-act="pad">' +
-            (has ? fmt(val, 2) : "…") + ' <span class="unit">' + esc(unitOf(d)) + '</span></div>' +
+            (has ? esc(qtyText(pending.get(d.id), d)) : "…") +
+            (has && settings.showPacks && packSize(d) ? "" : ' <span class="unit">' + esc(unitOf(d)) + '</span>') +
+          '</div>' +
           '<button class="step-btn" data-act="plus">+</button>' +
         '</div></div>';
     }).join("");
@@ -1041,8 +1501,13 @@ function renderCount(){
 
   const n = pending.size;
   $("#saveCount").textContent = n ? "Zählung speichern (" + n + ")" : "Zählung speichern";
-  $("#saveBar").classList.toggle("hide", view !== "count" || !n);
+  $("#saveBar").classList.toggle("hide", view !== "count" || round.active || !n);
 }
+
+$("#roundStart").addEventListener("click", e => {
+  const b = e.target.closest("[data-start]"); if (!b) return;
+  startRound(b.dataset.start);
+});
 
 $("#countList").addEventListener("click", e => {
   const row = e.target.closest(".crow"); if (!row) return;
@@ -1055,97 +1520,335 @@ $("#countList").addEventListener("click", e => {
   if (act === "plus"){ pending.set(id, Math.round((cur + 1) * 100) / 100); renderCount(); return; }
   if (act === "pad"){
     const a = analyze(id);
-    keypad({
+    qtySheet({
       title: d.name,
-      sub: a.lastCount ? "zuletzt " + qtyUnit(num(a.lastCount.qty), unitOf(d)) + " (" + relDays(a.lastCount.at) + ")"
+      sub: a.lastCount ? "zuletzt " + qtyText(num(a.lastCount.qty), d, true) + " (" + relDays(a.lastCount.at) + ")"
                        : "erste Zählung",
-      unit: unitOf(d),
+      drink: d,
       value: pending.has(id) ? pending.get(id) : "",
-      quick: a.lastCount ? [0, 1, 6, num(a.lastCount.qty)] : [0, 1, 6, 12],
+      last: a.lastCount ? num(a.lastCount.qty) : null,
       onOk: (v, entered) => { if (entered) pending.set(id, v); else pending.delete(id); renderCount(); }
     });
   }
 });
 $("#countSearch").addEventListener("input", e => { countFilter.q = e.target.value; renderCount(); });
+$("#saveCount").addEventListener("click", () => saveCounts());
 
-$("#saveCount").addEventListener("click", async () => {
+/* ---- Speichern und sofort verständlich zusammenfassen ---- */
+async function saveCounts(){
   if (!pending.size) return;
   const at = new Date().toISOString();
   const session = uid();
-  const rows = Array.from(pending.entries()).map(([drinkId, qty]) => ({ drinkId, qty, at, session, note: "" }));
-  const btn = $("#saveCount"); btn.disabled = true; btn.textContent = "Speichern…";
+  const entries = Array.from(pending.entries()).map(([drinkId, qty]) => ({ drinkId, qty }));
+
+  /* Die Zusammenfassung muss vor dem Schreiben entstehen – danach ist die
+     "letzte Zählung" die gerade gespeicherte. */
+  const summary = entries.map(e => {
+    const a = analyze(e.drinkId), d = a.drink;
+    const before = a.stock;                       // Bestand laut letzter Zählung + Lieferungen
+    const consumed = before == null ? null : Math.round((before - e.qty) * 100) / 100;
+    return { d, before, bought: a.boughtAfter || 0, now: e.qty, consumed,
+             days: a.lastCount ? a.daysSinceCount : null,
+             first: !a.lastCount, anomaly: consumed != null && consumed < -0.0001 };
+  }).sort((x, y) => (y.consumed || 0) - (x.consumed || 0));
+
+  const rows = entries.map(e => {
+    const d = drinkById(e.drinkId);
+    const sp = splitPack(e.qty, d);
+    return { drinkId: e.drinkId, qty: e.qty, packs: sp ? sp.packs : 0,
+             singles: sp ? sp.rest : e.qty, at, session, note: "" };
+  });
+
+  const btn = $("#saveCount"); const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Speichern…";
   try {
     await store.addMany("counts", rows);
     pending.clear();
-    toast(rows.length + " Zählung" + (rows.length > 1 ? "en" : "") + " gespeichert");
+    if (round.active) endRound();
+    showSummary(summary, at);
   } catch(err){
     console.error(err); toast("Fehler beim Speichern");
   }
-  btn.disabled = false;
+  btn.disabled = false; btn.textContent = label;
   renderAll();
-});
+}
+
+function showSummary(rows, at){
+  const used = rows.filter(r => r.consumed != null && r.consumed > 0);
+  const totalUsed = used.reduce((s, r) => s + r.consumed, 0);
+  const firsts = rows.filter(r => r.first).length;
+  const anomalies = rows.filter(r => r.anomaly);
+  const span = rows.map(r => r.days).filter(x => x != null).sort((a,b) => b-a)[0];
+
+  const line = r => {
+    let val, sub;
+    if (r.first){ val = "–"; sub = "erste Zählung"; }
+    else if (r.anomaly){
+      val = "+" + fmt(-r.consumed);
+      sub = "Bestand gestiegen – fehlt eine Lieferung?";
+    } else {
+      val = fmt(r.consumed);
+      sub = "vorher " + qtyText(r.before, r.d) + (r.bought ? " (inkl. +" + fmt(r.bought) + " Lieferung)" : "") +
+            " → jetzt " + qtyText(r.now, r.d);
+    }
+    return '<div class="sum-row"><div class="s-main">' +
+      '<div class="s-name">' + esc(r.d.name) + '</div>' +
+      '<div class="s-sub">' + esc(sub) + '</div></div>' +
+      '<div class="s-val">' + esc(val) + '</div></div>';
+  };
+
+  sheet(
+    '<h3>Zählung gespeichert</h3>' +
+    '<div class="small muted" style="margin-top:4px">' +
+      rows.length + " Getränk" + (rows.length > 1 ? "e" : "") + " · " + esc(fmtDateTime(at)) +
+    '</div>' +
+    '<div class="kpis" style="margin-top:16px">' +
+      kpi(fmt(totalUsed), "verbraucht") +
+      kpi(span != null ? fmt(span, 1) : "–", "Tage seither") +
+      kpi(String(used.length), "mit Verbrauch") +
+    '</div>' +
+    (anomalies.length
+      ? '<div class="banner"><div>Bei ' + anomalies.length + ' Getränk(en) ist der Bestand <b>gestiegen</b>, ' +
+        'ohne dass eine Lieferung erfasst wurde. Unter <b>Einkauf → Nachkauf erfassen</b> nachtragen, ' +
+        'sonst fehlt dieser Abschnitt im Ø-Verbrauch.</div></div>'
+      : "") +
+    (firsts
+      ? '<div class="banner"><div>' + firsts + ' Getränk(e) wurden zum ersten Mal gezählt. ' +
+        'Verbrauch lässt sich erst ab der zweiten Zählung berechnen.</div></div>'
+      : "") +
+    '<div class="section-title">Verbrauch seit der letzten Zählung</div>' +
+    '<div class="card">' + (rows.length ? rows.map(line).join("") : '<div class="empty">–</div>') + '</div>' +
+    '<div class="btn-grid" style="margin-top:6px">' +
+      '<button class="btn ghost" data-act="shop">Zur Einkaufsliste</button>' +
+      '<button class="btn primary" data-act="done">Fertig</button></div>',
+    el => {
+      el.addEventListener("click", e => {
+        const b = e.target.closest("button"); if (!b) return;
+        if (b.dataset.act === "done"){ closeSheet(); }
+        if (b.dataset.act === "shop"){ closeSheet(); setView("shop"); }
+      });
+    });
+}
 
 /* ---------------------------------------------------------------------
-   8) Nachkäufe / Lieferungen
+   8) Einkaufsliste und Nachkäufe
+
+   Die Liste hat zwei Quellen: automatisch aus der Warnschwelle/Vorhersage
+   und von Hand hinzugefügt. Abgehakt wird eine Position, indem der Kauf
+   als Nachkauf gebucht wird – dadurch steigt der Bestand und die Position
+   verschwindet von selbst. Ein automatischer Vorschlag lässt sich auch
+   wegwischen; er bleibt dann bis zur nächsten Zählung fort.
    --------------------------------------------------------------------- */
-let buyState = { drinkId: "", qty: 0, atTouched: false };
+function shopModel(){
+  const skip = {}; const manual = [];
+  store.shopping.forEach(r => {
+    if (r.kind === "skip"){ if (r.drinkId) skip[r.drinkId] = String(r.at || ""); return; }
+    manual.push(r);
+  });
+  const onList = {};
+  manual.forEach(m => { if (m.drinkId) onList[m.drinkId] = true; });
 
-function renderBuy(){
-  const sel = $("#buyDrink");
-  if (!store.drinks.length){
-    sel.innerHTML = '<option value="">– noch keine Getränke –</option>';
-  } else {
-    if (!store.drinks.some(d => d.id === buyState.drinkId)) buyState.drinkId = store.drinks[0].id;
-    sel.innerHTML = store.drinks.map(d =>
-      '<option value="' + esc(d.id) + '"' + (d.id === buyState.drinkId ? " selected" : "") + '>' +
-      esc(d.name) + (d.category ? " · " + esc(d.category) : "") + '</option>').join("");
-  }
-  const d = drinkById(buyState.drinkId);
-  $("#buyUnit").textContent = unitOf(d);
-  $("#buyQty").firstChild.nodeValue = fmt(buyState.qty, 2) + " ";
-  if (!$("#buyAt").value) $("#buyAt").value = localInputValue(new Date());
+  const auto = alerts().filter(x => {
+    const id = x.a.drink.id;
+    if (onList[id]) return false;
+    const sk = skip[id];
+    if (!sk) return true;
+    const lc = x.a.lastCount;                       // nach einer neuen Zählung wieder zeigen
+    return lc ? String(lc.at) > sk : false;
+  }).map(x => ({
+    key: "auto:" + x.a.drink.id, auto: true, drink: x.a.drink, a: x.a,
+    level: x.level, name: x.a.drink.name, qty: suggestBuy(x.a), sub: x.sub
+  }));
 
-  const rows = store.purchases.slice(0, 40);
+  const own = manual.map(m => {
+    const d = m.drinkId ? drinkById(m.drinkId) : null;
+    const a = d ? analyze(d.id) : null;
+    return {
+      key: m.id, auto: false, row: m, drink: d, a, level: "warn",
+      name: d ? d.name : (m.name || "Position"),
+      qty: num(m.qty, 0) || (a ? suggestBuy(a) : 0),
+      sub: [m.note, d && a && a.stock != null ? "Bestand " + qtyText(a.stock, d, true) : null,
+            "selbst hinzugefügt"].filter(Boolean).join(" · ")
+    };
+  });
+  return own.concat(auto);
+}
+
+function renderShop(){
+  const items = shopModel();
+  const host = $("#shopList");
+  host.innerHTML = items.length ? items.map(it => {
+    const d = it.drink;
+    const qtyTxt = (d && it.qty > 0)
+      ? '<div class="b-qty"><b>' + esc(qtyText(it.qty, d)) + '</b><span>kaufen</span></div>'
+      : "";
+    return '<div class="buyrow' + (it.level === "crit" ? " crit" : "") + '" data-key="' + esc(it.key) + '">' +
+      '<button class="b-check" data-act="buy" title="Gekauft">&#10003;</button>' +
+      '<div class="b-main"><div class="b-name">' + esc(it.name) +
+        (it.auto ? "" : ' <span class="badge">Liste</span>') + '</div>' +
+        '<div class="b-sub">' + esc(it.sub) + '</div></div>' +
+      qtyTxt +
+      '<button class="b-x" data-act="drop" title="Von der Liste nehmen">&#10005;</button>' +
+    '</div>';
+  }).join("") : '<div class="empty">Nichts zu kaufen.<br>Getränke erscheinen hier automatisch, sobald ' +
+      'der Bestand unter den Mindestbestand fällt oder die Reichweite unter ' + settings.warnDays + ' Tage sinkt.</div>';
+
+  const rows = store.purchases.slice(0, 30);
   $("#buyList").innerHTML = rows.length ? rows.map(p => {
     const dr = drinkById(p.drinkId);
     return '<div class="item"><div class="i-main">' +
       '<div class="i-name">' + esc(dr ? dr.name : "(gelöscht)") + '</div>' +
       '<div class="i-sub">' + esc(fmtDateTime(p.at)) + (p.note ? " · " + esc(p.note) : "") + '</div></div>' +
-      '<div class="i-val">+' + fmt(num(p.qty), 2) + '</div>' +
+      '<div class="i-val">+' + esc(dr ? qtyText(num(p.qty), dr) : fmt(num(p.qty))) + '</div>' +
       '<button class="btn sm danger" data-del="' + esc(p.id) + '">&#10005;</button></div>';
   }).join("") : '<div class="empty">Noch keine Nachkäufe erfasst.</div>';
 }
 
-$("#buyDrink").addEventListener("change", e => { buyState.drinkId = e.target.value; renderBuy(); });
-$("#buyAt").addEventListener("input", () => { buyState.atTouched = true; });
-$("#buyMinus").addEventListener("click", () => { buyState.qty = Math.max(0, buyState.qty - 1); renderBuy(); });
-$("#buyPlus").addEventListener("click", () => { buyState.qty = buyState.qty + 1; renderBuy(); });
-$("#buyQty").addEventListener("click", () => {
-  const d = drinkById(buyState.drinkId);
-  keypad({ title:"Nachkauf-Menge", sub: d ? d.name : "", unit: unitOf(d), value: buyState.qty || "",
-    quick:[6, 12, 20, 24], onOk: v => { buyState.qty = v; renderBuy(); } });
+$("#shopList").addEventListener("click", async e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const row = e.target.closest("[data-key]"); if (!row) return;
+  const key = row.dataset.key;
+  const it = shopModel().find(x => x.key === key); if (!it) return;
+
+  if (b.dataset.act === "drop"){
+    if (it.auto){
+      await store.add("shopping", { kind:"skip", drinkId: it.drink.id, name:"", qty:0, note:"",
+                                    at: new Date().toISOString() });
+      toast("Ausgeblendet bis zur nächsten Zählung");
+    } else {
+      await store.remove("shopping", it.row.id);
+      toast("Von der Liste genommen");
+    }
+    renderAll(); return;
+  }
+
+  if (b.dataset.act === "buy"){
+    if (!it.drink){                       // freie Notiz: nur abhaken, nichts zu buchen
+      await store.remove("shopping", it.row.id);
+      toast("Erledigt"); renderAll(); return;
+    }
+    qtySheet({
+      title: "Gekauft: " + it.drink.name,
+      sub: "Wird als Nachkauf gebucht – dadurch bleibt der Verbrauch korrekt.",
+      drink: it.drink, value: it.qty || "", okLabel: "Einbuchen",
+      onOk: async (v) => {
+        if (!(v > 0)) return toast("Menge fehlt");
+        const sp = splitPack(v, it.drink);
+        await store.add("purchases", { drinkId: it.drink.id, qty: v,
+          packs: sp ? sp.packs : 0, singles: sp ? sp.rest : v,
+          at: new Date().toISOString(), note: "über die Einkaufsliste" });
+        if (!it.auto) await store.remove("shopping", it.row.id);
+        toast("+" + qtyText(v, it.drink) + " eingebucht");
+        renderAll();
+      }
+    });
+  }
 });
+
 $("#buyList").addEventListener("click", e => {
   const b = e.target.closest("[data-del]"); if (!b) return;
   askConfirm("Nachkauf löschen?", "Der Eintrag wird entfernt, die Verbrauchsberechnung ändert sich dadurch.",
     "Löschen", async () => { await store.remove("purchases", b.dataset.del); toast("Gelöscht"); renderAll(); });
 });
-$("#buySave").addEventListener("click", async () => {
-  const d = drinkById(buyState.drinkId);
-  if (!d) return toast("Bitte zuerst ein Getränk anlegen");
-  if (!(buyState.qty > 0)) return toast("Menge fehlt");
-  /* Das Feld kennt nur Minuten. Solange es unverändert ist, die exakte
-     Uhrzeit verwenden – sonst rutscht ein Nachkauf vor eine gerade
-     gespeicherte Zählung und würde als Verbrauch gewertet. */
-  const atVal = $("#buyAt").value;
-  const at = (buyState.atTouched && atVal) ? new Date(atVal).toISOString() : new Date().toISOString();
-  try {
-    await store.add("purchases", { drinkId: d.id, qty: buyState.qty, at, note: $("#buyNote").value.trim() });
-    toast("Nachkauf gespeichert: +" + fmt(buyState.qty, 2) + " " + unitOf(d));
-    buyState.qty = 0; buyState.atTouched = false;
-    $("#buyNote").value = ""; $("#buyAt").value = localInputValue(new Date());
-    renderAll();
-  } catch(err){ console.error(err); toast("Fehler beim Speichern"); }
+
+/* Position von Hand auf die Liste setzen */
+$("#shopAdd").addEventListener("click", () => {
+  const opts = '<option value="">– freie Notiz –</option>' +
+    store.drinks.map(d => '<option value="' + esc(d.id) + '">' + esc(d.name) + '</option>').join("");
+  sheet(
+    '<h3>Auf die Einkaufsliste</h3>' +
+    '<div style="margin-top:14px">' +
+    '<label class="fld"><span>Getränk</span><select id="sDrink">' + opts + '</select></label>' +
+    '<label class="fld" id="sNameWrap"><span>Was soll gekauft werden?</span>' +
+      '<input type="text" id="sName" placeholder="z. B. Eis, Zitronen, Strohhalme"></label>' +
+    '<label class="fld"><span>Notiz (optional)</span><input type="text" id="sNote" placeholder="z. B. beim Getränkemarkt"></label>' +
+    '<div class="small faint" id="sHint"></div>' +
+    '</div>' +
+    '<div class="btn-grid" style="margin-top:14px"><button class="btn ghost" id="sCancel">Abbrechen</button>' +
+    '<button class="btn primary" id="sOk">Hinzufügen</button></div>',
+    el => {
+      const sel = $("#sDrink", el), wrap = $("#sNameWrap", el), hint = $("#sHint", el);
+      const sync = () => {
+        const d = drinkById(sel.value);
+        wrap.classList.toggle("hide", !!d);
+        hint.textContent = d
+          ? "Vorgeschlagene Menge: " + qtyText(suggestBuy(analyze(d.id)), d, true) +
+            " – beim Abhaken lässt sie sich noch ändern."
+          : "";
+      };
+      sel.onchange = sync; sync();
+      $("#sCancel", el).onclick = closeSheet;
+      $("#sOk", el).onclick = async () => {
+        const d = drinkById(sel.value);
+        const name = d ? "" : $("#sName", el).value.trim();
+        if (!d && !name) return toast("Bitte ein Getränk wählen oder etwas eintragen");
+        await store.add("shopping", {
+          kind: "item", drinkId: d ? d.id : "", name,
+          qty: d ? suggestBuy(analyze(d.id)) : 0,
+          note: $("#sNote", el).value.trim(), at: new Date().toISOString()
+        });
+        closeSheet(); toast("Auf der Liste"); renderAll();
+      };
+    });
+});
+
+/* Lieferung erfassen, die nicht über die Liste lief */
+$("#buyOpen").addEventListener("click", () => {
+  if (!store.drinks.length) return toast("Bitte zuerst ein Getränk anlegen");
+  const state = { drinkId: store.drinks[0].id, st: null };
+  const body = () => {
+    const d = drinkById(state.drinkId);
+    state.st = padState(d, "");
+    return padHtml(d, state.st);
+  };
+  sheet(
+    '<h3>Nachkauf erfassen</h3>' +
+    '<div class="small muted">Lieferungen müssen erfasst werden – sonst sieht es aus, als wäre weniger verbraucht worden.</div>' +
+    '<div style="margin-top:14px">' +
+    '<label class="fld"><span>Getränk</span><select id="pDrink">' +
+      store.drinks.map(d => '<option value="' + esc(d.id) + '">' + esc(d.name) +
+        (d.category ? " · " + esc(d.category) : "") + '</option>').join("") + '</select></label>' +
+    '</div>' +
+    '<div id="padBody">' + body() + '</div>' +
+    '<div style="margin-top:16px">' +
+    '<label class="fld"><span>Zeitpunkt</span><input type="datetime-local" id="pAt"></label>' +
+    '<label class="fld"><span>Notiz (optional)</span><input type="text" id="pNote" placeholder="z. B. Getränkemarkt"></label>' +
+    '</div>' +
+    '<div class="btn-grid"><button class="btn ghost" id="pCancel">Abbrechen</button>' +
+    '<button class="btn primary" id="pOk">Speichern</button></div>',
+    el => {
+      const at = $("#pAt", el);
+      at.value = localInputValue(new Date());
+      let atTouched = false;
+      at.addEventListener("input", () => { atTouched = true; });
+      $("#pDrink", el).addEventListener("change", ev => {
+        state.drinkId = ev.target.value;
+        $("#padBody", el).innerHTML = body();
+      });
+      el.addEventListener("click", ev => {
+        if (ev.target.closest("#padBody") && padClick(ev, drinkById(state.drinkId), state.st))
+          $("#padBody", el).innerHTML = padHtml(drinkById(state.drinkId), state.st);
+      });
+      $("#pCancel", el).onclick = closeSheet;
+      $("#pOk", el).onclick = async () => {
+        const d = drinkById(state.drinkId);
+        const v = padValue(d, state.st);
+        if (!(v > 0)) return toast("Menge fehlt");
+        /* Das Feld kennt nur Minuten. Solange es unverändert ist, die exakte
+           Uhrzeit verwenden – sonst rutscht ein Nachkauf vor eine gerade
+           gespeicherte Zählung und würde als Verbrauch gewertet. */
+        const iso = (atTouched && at.value) ? new Date(at.value).toISOString() : new Date().toISOString();
+        const sp = splitPack(v, d);
+        try {
+          await store.add("purchases", { drinkId: d.id, qty: v,
+            packs: sp ? sp.packs : 0, singles: sp ? sp.rest : v,
+            at: iso, note: $("#pNote", el).value.trim() });
+          closeSheet();
+          toast("Nachkauf gespeichert: +" + qtyText(v, d));
+          renderAll();
+        } catch(err){ console.error(err); toast("Fehler beim Speichern"); }
+      };
+    });
 });
 
 /* ---------------------------------------------------------------------
@@ -1162,8 +1865,9 @@ function renderDrinks(){
     const a = ana[d.id] || {};
     const sub = [
       d.category || "ohne Kategorie",
-      a.stock != null ? "Bestand " + fmt(a.stock) + " " + unitOf(d) : "nie gezählt",
-      num(d.minStock, 0) > 0 ? "Min. " + fmt(num(d.minStock)) : null
+      packHint(d) || null,
+      a.stock != null ? "Bestand " + qtyText(a.stock, d, true) : "nie gezählt",
+      num(d.minStock, 0) > 0 ? "Min. " + qtyUnit(num(d.minStock), unitOf(d)) : null
     ].filter(Boolean).join(" · ");
     return '<div class="item"><div class="i-main">' +
       '<div class="i-name">' + esc(d.name) + '</div><div class="i-sub">' + esc(sub) + '</div></div>' +
@@ -1185,9 +1889,19 @@ function drinkForm(d){
     '<label class="fld"><span>Name</span><input type="text" id="fName" value="' + esc(d ? d.name : "") + '" placeholder="z. B. Weizenbier 0,5"></label>' +
     '<label class="fld"><span>Kategorie</span><input type="text" id="fCat" list="catList" value="' + esc(d ? (d.category||"") : "") + '" placeholder="z. B. Bier"></label>' +
     '<datalist id="catList">' + cats.map(c => '<option value="' + esc(c) + '">').join("") + '</datalist>' +
-    '<label class="fld"><span>Einheit</span><input type="text" id="fUnit" list="unitList" value="' + esc(d ? unitOf(d) : "Flaschen") + '" placeholder="Flaschen"></label>' +
-    '<datalist id="unitList"><option value="Flaschen"><option value="Dosen"><option value="Kästen"><option value="Fässer"><option value="Liter"><option value="Stk"></datalist>' +
-    '<label class="fld"><span>Mindestbestand (0 = aus)</span><input type="number" id="fMin" inputmode="decimal" step="0.5" min="0" value="' + esc(d ? num(d.minStock, 0) : 0) + '"></label>' +
+    '<label class="fld"><span>Einzeleinheit &ndash; so wird gezählt und gerechnet</span>' +
+      '<input type="text" id="fUnit" list="unitList" value="' + esc(d ? unitOf(d) : "Flaschen") + '" placeholder="Flaschen"></label>' +
+    '<datalist id="unitList"><option value="Flaschen"><option value="Dosen"><option value="Gläser"><option value="Liter"><option value="Stk"></datalist>' +
+    '<div class="row" style="gap:10px;align-items:flex-start">' +
+      '<label class="fld" style="flex:1.15;min-width:0"><span>Gebinde</span>' +
+        '<input type="text" id="fPackName" list="packList" value="' + esc(d ? packOne(d) : "Kasten") + '" placeholder="Kasten"></label>' +
+      '<label class="fld" style="flex:1;min-width:0"><span>… enthält</span>' +
+        '<input type="number" id="fPackSize" inputmode="numeric" step="1" min="0" value="' +
+        esc(d ? (packSize(d) || "") : "") + '" placeholder="z. B. 20"></label>' +
+    '</div>' +
+    '<datalist id="packList"><option value="Kasten"><option value="Kiste"><option value="Träger"><option value="Karton"><option value="Sixpack"></datalist>' +
+    '<div class="small faint" id="fPackHint" style="margin:-8px 0 16px"></div>' +
+    '<label class="fld"><span>Mindestbestand in Einzeleinheiten (0 = aus)</span><input type="number" id="fMin" inputmode="decimal" step="0.5" min="0" value="' + esc(d ? num(d.minStock, 0) : 0) + '"></label>' +
     '</div>' +
     '<div class="btn-grid"><button class="btn ghost" id="fCancel">Abbrechen</button>' +
     '<button class="btn primary" id="fSave">Speichern</button></div>' +
@@ -1195,13 +1909,32 @@ function drinkForm(d){
     el => {
       $("#fCancel", el).onclick = closeSheet;
       $("#fName", el).focus();
+
+      /* Zeigt im Klartext, was die Gebindeangabe bedeutet */
+      const hint = $("#fPackHint", el);
+      const syncHint = () => {
+        const ps = Math.round(num($("#fPackSize", el).value, 0));
+        const un = $("#fUnit", el).value.trim() || "Stk";
+        const pn = $("#fPackName", el).value.trim() || "Kasten";
+        hint.textContent = ps > 1
+          ? "1 " + pn + " = " + qtyUnit(ps, un) + ". Beim Zählen lassen sich " + (PACK_PLURAL[pn] || pn) +
+            " und einzelne " + un + " getrennt eintippen."
+          : "Leer lassen, wenn es dieses Getränk nur einzeln gibt.";
+      };
+      ["fPackSize", "fPackName", "fUnit"].forEach(id =>
+        $("#" + id, el).addEventListener("input", syncHint));
+      syncHint();
+
       $("#fSave", el).onclick = async () => {
         const name = $("#fName", el).value.trim();
         if (!name) return toast("Name fehlt");
+        const ps = Math.round(num($("#fPackSize", el).value, 0));
         const data = {
           name,
           category: $("#fCat", el).value.trim(),
           unit: $("#fUnit", el).value.trim() || "Stk",
+          packSize: ps > 1 ? ps : 0,
+          packName: $("#fPackName", el).value.trim() || "Kasten",
           minStock: parseNum($("#fMin", el).value)
         };
         try {
@@ -1218,6 +1951,7 @@ function drinkForm(d){
           "Endgültig löschen", async () => {
             for (const c of store.counts.filter(c => c.drinkId === d.id)) await store.remove("counts", c.id);
             for (const p of store.purchases.filter(p => p.drinkId === d.id)) await store.remove("purchases", p.id);
+            for (const x of store.shopping.filter(x => x.drinkId === d.id)) await store.remove("shopping", x.id);
             await store.remove("drinks", d.id);
             pending.delete(d.id);
             toast("Gelöscht"); renderAll();
@@ -1257,6 +1991,11 @@ function renderStats(){
     kpi(spanDays ? fmt(totalUse / spanDays, 1) : "–", "Ø pro Tag") +
     kpi(String(countsInRange), "Zählungen");
 
+  /* Gerechnet wird immer in Einzeleinheiten; hier lässt sich nur die
+     Anzeige auf Gebinde umstellen. */
+  $$("#statUnit button").forEach(b =>
+    b.classList.toggle("on", (b.dataset.packs === "1") === !!settings.showPacks));
+
   /* --- Ranking: eine Serie, Werte direkt beschriftet --- */
   const box = $("#statRank");
   if (!rank.length){
@@ -1267,7 +2006,7 @@ function renderStats(){
     box.innerHTML = rank.slice(0, 12).map((r, i) =>
       '<div class="rank"><div class="r-no">' + (i+1) + '</div><div class="r-body">' +
         '<div class="r-top"><div class="r-name">' + esc(r.drink.name) + '</div>' +
-        '<div class="r-val">' + fmt(r.total) + ' <span class="tiny faint">' + esc(unitOf(r.drink)) + '</span></div></div>' +
+        '<div class="r-val">' + esc(qtyText(r.total, r.drink)) + '</div></div>' +
         '<div class="bar"><i style="width:' + Math.max(2, (r.total / max) * 100) + '%"></i></div>' +
       '</div></div>').join("");
   }
@@ -1291,6 +2030,11 @@ function renderStats(){
 function kpi(v, l){ return '<div class="kpi"><b>' + esc(v) + '</b><span>' + esc(l) + '</span></div>'; }
 
 $("#statDrink").addEventListener("change", e => { statState.drinkId = e.target.value; drawChart(); renderSegments(); });
+$("#statUnit").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  settings.showPacks = b.dataset.packs === "1";
+  saveSettings(); renderAll();
+});
 
 /* runde Achsenobergrenze, damit die Beschriftung lesbare Zahlen zeigt */
 function niceMax(v){
@@ -1365,7 +2109,7 @@ function drawChart(){
     pts.forEach(p => { const dd = Math.abs(X(p.t) - cx); if (dd < bd){ bd = dd; best = p; } });
     cross.setAttribute("x1", X(best.t)); cross.setAttribute("x2", X(best.t));
     cross.setAttribute("opacity", ".5");
-    read.innerHTML = '<b style="color:var(--fg)">' + fmt(best.v) + ' ' + esc(unitOf(d)) + '</b> · ' +
+    read.innerHTML = '<b style="color:var(--fg)">' + esc(qtyText(best.v, d, true)) + '</b> · ' +
       esc(fmtDateTime(new Date(best.t).toISOString())) + (best.kind === "buy" ? " (Nachkauf)" : "");
   };
   svg.addEventListener("mousemove", inspect);
@@ -1387,6 +2131,7 @@ function renderSegments(){
       '<div><div class="tiny faint">Ø PRO TAG</div><div style="font-size:19px;font-weight:750">' + fmt(a.perDay, 2) + '</div></div>' +
       '<div><div class="tiny faint">Ø PRO WOCHE</div><div style="font-size:19px;font-weight:750">' + fmt(a.perWeek, 1) + '</div></div>' +
       '<div><div class="tiny faint">REICHWEITE</div><div style="font-size:19px;font-weight:750">' + fmt(a.daysLeft, 1) + ' Tage</div></div>' +
+      '<div><div class="tiny faint">BESTAND</div><div style="font-size:19px;font-weight:750">' + esc(qtyText(a.stock, d)) + '</div></div>' +
       '</div><div class="small muted" style="margin-top:8px">Voraussichtlich leer am <b>' + esc(fmtDate(a.emptyAt)) + '</b> ' +
       '· berechnet aus ' + a.segments.filter(s => s.usable).length + ' Abschnitten über ' + fmt(a.totalDays, 1) + ' Tage</div></div>';
   } else {
@@ -1397,11 +2142,11 @@ function renderSegments(){
   const rows = segs.length ? segs.map(s =>
     '<div class="item"><div class="i-main">' +
       '<div class="i-name">' + esc(fmtDate(s.from)) + ' &rarr; ' + esc(fmtDate(s.to)) + '</div>' +
-      '<div class="i-sub">' + fmt(s.days, 1) + ' Tage' + (s.added ? ' · +' + fmt(s.added) + ' nachgekauft' : '') +
+      '<div class="i-sub">' + fmt(s.days, 1) + ' Tage' + (s.added ? ' · +' + esc(qtyText(s.added, d)) + ' nachgekauft' : '') +
         (s.rate != null && s.usable ? ' · ' + fmt(s.rate, 2) + '/Tag' : '') + '</div></div>' +
       (s.anomaly
         ? '<span class="badge crit">Bestand gestiegen</span>'
-        : '<div class="i-val">' + fmt(Math.max(0, s.consumed)) + '</div>') +
+        : '<div class="i-val">' + esc(qtyText(Math.max(0, s.consumed), d)) + '</div>') +
     '</div>').join("") : '<div class="empty">Erst ab der zweiten Zählung berechenbar.</div>';
 
   const anomalyHint = a.anomalies
@@ -1678,6 +2423,7 @@ function renderMore(){
 
   $("#cfgBar").value = settings.barId;
   $("#cfgWarnDays").value = settings.warnDays;
+  $("#cfgPacks").checked = !!settings.showPacks;
   if (document.activeElement !== $("#cfgFb"))
     $("#cfgFb").value = settings.fb ? JSON.stringify(settings.fb, null, 2) : "";
 
@@ -1708,7 +2454,8 @@ function renderMore(){
   $("#dbStatus").innerHTML = '<div class="' + cls + '">' + msg + '</div>';
 
   $("#verLine").textContent = "Staffelbar v" + APP_VERSION + " · " +
-    store.drinks.length + " Getränke · " + store.counts.length + " Zählungen · " + store.purchases.length + " Nachkäufe";
+    store.drinks.length + " Getränke · " + store.counts.length + " Zählungen · " +
+    store.purchases.length + " Nachkäufe · " + shopModel().length + " auf der Einkaufsliste";
 }
 
 $("#qrCopy").addEventListener("click", async () => {
@@ -1743,15 +2490,19 @@ function stamp(){ return new Date().toISOString().slice(0, 10); }
 $("#expCsv").addEventListener("click", () => {
   const sep = ";";
   const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-  const lines = [["Typ","Getränk","Kategorie","Einheit","Menge","Zeitpunkt","Notiz"].map(q).join(sep)];
+  const lines = [["Typ","Getränk","Kategorie","Einheit","Menge","Gebinde","Gebindegröße","Zeitpunkt","Notiz"].map(q).join(sep)];
   const rows = []
     .concat(store.counts.map(c => ({ typ:"Zählung", r:c })))
     .concat(store.purchases.map(p => ({ typ:"Nachkauf", r:p })))
     .sort((a,b) => String(a.r.at||"").localeCompare(String(b.r.at||"")));
   rows.forEach(({typ, r}) => {
     const d = drinkById(r.drinkId) || {};
+    const sp = splitPack(num(r.qty), d);
     lines.push([typ, d.name||"(gelöscht)", d.category||"", unitOf(d),
-      String(num(r.qty)).replace(".", ","), r.at ? fmtDateTime(r.at) : "", r.note||""].map(q).join(sep));
+      String(num(r.qty)).replace(".", ","),
+      sp ? sp.packs + " " + packWord(sp.packs, d) + (sp.rest ? " + " + fmt(sp.rest) : "") : "",
+      packSize(d) || "",
+      r.at ? fmtDateTime(r.at) : "", r.note||""].map(q).join(sep));
   });
   /* Verbrauchsübersicht anhängen */
   lines.push("", ["Getränk","Verbrauch gesamt","Ø pro Tag","Ø pro Woche","Bestand","Reichweite (Tage)"].map(q).join(sep));
@@ -1768,7 +2519,7 @@ $("#expCsv").addEventListener("click", () => {
 $("#expJson").addEventListener("click", () => {
   download("staffelbar-" + stamp() + ".json", JSON.stringify({
     app: "staffelbar", version: APP_VERSION, barId: settings.barId, exportedAt: new Date().toISOString(),
-    drinks: store.drinks, counts: store.counts, purchases: store.purchases
+    drinks: store.drinks, counts: store.counts, purchases: store.purchases, shopping: store.shopping
   }, null, 2), "application/json");
   toast("JSON exportiert");
 });
@@ -1790,12 +2541,15 @@ $("#impFile").addEventListener("change", e => {
           const exists = store.drinks.find(y => y.name === x.name);
           map[x.id] = exists ? exists.id : await store.add("drinks", {
             name: x.name, category: x.category||"", unit: x.unit||"Stk",
+            packSize: Math.max(0, Math.round(num(x.packSize, 0))), packName: x.packName || "Kasten",
             minStock: num(x.minStock,0), createdAt: x.createdAt || new Date().toISOString() });
         }
         await store.addMany("counts", co.filter(c => map[c.drinkId])
-          .map(c => ({ drinkId: map[c.drinkId], qty: num(c.qty), at: c.at, session: c.session||"", note: c.note||"" })));
+          .map(c => ({ drinkId: map[c.drinkId], qty: num(c.qty), packs: num(c.packs,0), singles: num(c.singles, num(c.qty)),
+                       at: c.at, session: c.session||"", note: c.note||"" })));
         await store.addMany("purchases", pu.filter(p => map[p.drinkId])
-          .map(p => ({ drinkId: map[p.drinkId], qty: num(p.qty), at: p.at, note: p.note||"" })));
+          .map(p => ({ drinkId: map[p.drinkId], qty: num(p.qty), packs: num(p.packs,0), singles: num(p.singles, num(p.qty)),
+                       at: p.at, note: p.note||"" })));
         toast("Backup eingespielt"); renderAll();
       });
     e.target.value = "";
@@ -1821,6 +2575,7 @@ $("#cfgSave").addEventListener("click", async () => {
   const bar = $("#cfgBar").value.trim().replace(/[^\w\-]/g, "-");
   settings.barId = bar || DEFAULT_BAR_ID;
   settings.warnDays = Math.min(90, Math.max(1, num($("#cfgWarnDays").value, 7) || 7));
+  settings.showPacks = $("#cfgPacks").checked;
   saveSettings();
   toast("Gespeichert – verbinde…");
   await store.connect();
@@ -1830,12 +2585,16 @@ $("#cfgClear").addEventListener("click", () => {
   askConfirm("Einstellungen zurücksetzen?",
     "Firebase-Konfiguration und Bar-ID werden auf diesem Gerät gelöscht. Die Daten in Firestore bleiben erhalten.",
     "Zurücksetzen", async () => {
-      settings.fb = null; settings.barId = DEFAULT_BAR_ID; settings.warnDays = 7;
+      settings.fb = null; settings.barId = DEFAULT_BAR_ID; settings.warnDays = 7; settings.showPacks = true;
       saveSettings(); await store.connect(); renderAll(); toast("Zurückgesetzt");
     });
 });
 $("#cfgWarnDays").addEventListener("change", () => {
   settings.warnDays = Math.min(90, Math.max(1, num($("#cfgWarnDays").value, 7) || 7));
+  saveSettings(); renderAll();
+});
+$("#cfgPacks").addEventListener("change", e => {
+  settings.showPacks = e.target.checked;
   saveSettings(); renderAll();
 });
 
@@ -1865,7 +2624,6 @@ window.addEventListener("online",  () => { store.status = store.mode === "fireba
 window.addEventListener("offline", () => { if (store.mode === "firebase") store.status = "offline"; renderAll(); });
 
 store.onChange(renderAll);
-$("#buyAt").value = localInputValue(new Date());
 renderAll();
 store.connect();
 </script>

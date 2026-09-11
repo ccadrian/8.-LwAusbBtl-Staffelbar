@@ -20,9 +20,12 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 
 | Bereich | Funktion |
 |---|---|
-| **Zählen** | Alle Getränke als große Tap-Flächen, Zahlenblock fürs schnelle Zählen im Stehen. Jede Zählung wird mit Datum/Uhrzeit als neuer Eintrag gespeichert – **nichts wird überschrieben**. |
+| **Zählrunde** | Geführt, ein Getränk nach dem anderen, nach Kategorie sortiert, mit Fortschrittsanzeige. Der Zahlenblock steht direkt darunter – kein Suchen in langen Listen. Überspringen ist erlaubt, die Übersicht zeigt jederzeit, was schon gezählt ist und was fehlt. |
+| **Kästen** | Pro Getränk lässt sich eine Gebindegröße hinterlegen (1 Kasten = 20 Flaschen). Gezählt wird dann in **Kästen + einzelne Flaschen**, das Tool rechnet um. Gespeichert und gerechnet wird immer in Einzelflaschen. |
+| **Zusammenfassung** | Direkt nach dem Speichern: was sich verändert hat, was verbraucht wurde, wo der Bestand gestiegen ist – ohne selbst zu rechnen. |
+| **Einkaufsliste** | Füllt sich von selbst aus Warnschwelle und Vorhersage, mit Mengenvorschlag in vollen Kästen. Eigene Positionen (auch freie Notizen wie „Eis“) lassen sich ergänzen. Abhaken bucht den Kauf als Nachkauf – die Position verschwindet dadurch von allein. |
 | **Nachkauf** | Lieferungen separat erfassen, damit der Verbrauch korrekt bleibt (ein Nachkauf ist kein Verbrauch). |
-| **Statistik** | Verbrauch zwischen zwei Zählungen, Ranking der beliebtesten Getränke, Verlaufsdiagramm pro Getränk, Filter nach Kategorie und Zeitraum. |
+| **Statistik** | Verbrauch zwischen zwei Zählungen, Ranking der beliebtesten Getränke, Verlaufsdiagramm pro Getränk, Filter nach Kategorie und Zeitraum. Mengen wahlweise einzeln oder in Gebinden. |
 | **Vorhersage** | Ø-Verbrauch pro Tag/Woche und Hochrechnung, wann ein Getränk leer ist – **nur wenn die Datenlage das hergibt** (siehe unten). |
 | **Erinnerung** | „Bald nachkaufen“ steht ganz oben auf der Startseite, sortiert nach Dringlichkeit. |
 | **Verwalten** | Getränke anlegen, bearbeiten, löschen; Export als CSV und JSON; JSON-Backup einspielen. |
@@ -90,12 +93,28 @@ unter Settings → Pages.
 
 </details>
 
+Die Daten liegen unter `bars/<bar-id>/…` in vier Sammlungen: `drinks`
+(mit `packSize`/`packName` fürs Gebinde), `counts`, `purchases` und `shopping`
+(die Einkaufsliste). `qty` ist in allen Fällen die Menge in Einzeleinheiten.
+
 > **Zur Sicherheit:** Ohne Login müssen die Regeln offen sein – wer die
 > Projekt-ID kennt, kann in `bars/staffelbar/…` lesen und schreiben. Alles
 > außerhalb dieses Pfads ist gesperrt. Wer es enger braucht, nutzt Firebase
 > App Check oder anonyme Anmeldung.
 
 ---
+
+## Kästen und Einzelflaschen
+
+Eine Regel für alles: **gerechnet und gespeichert wird immer in Einzeleinheiten**
+(Flasche, Dose, Glas). Kästen sind reine Ein- und Ausgabe – beim Zählen werden
+sie sofort umgerechnet, angezeigt werden sie wieder als Kästen, sofern das
+eingeschaltet ist (*Mehr → Einstellungen*, oder der Umschalter in der Statistik).
+
+Das hat einen Grund: Ändert sich später die Gebindegröße, bleiben alte Zahlen
+trotzdem vergleichbar, und Getränke mit und ohne Kasten lassen sich in derselben
+Statistik nebeneinander stellen. Ein Getränk ohne Gebindeangabe verhält sich
+genau wie vorher.
 
 ## Wie der Verbrauch berechnet wird
 
@@ -140,6 +159,11 @@ liegt (Standard 7 Tage) oder der Mindestbestand unterschritten ist.
   Jeder Datenraum braucht eine eigene Regel-Zeile (siehe oben).
 - **Backup**: Tab **Mehr → Export**. Das JSON lässt sich dort auch wieder
   einspielen.
+- **Kein Zoom-Gezappel**: Auf dem Telefon vergrößert sich die Seite beim
+  schnellen Tippen nicht mehr. Dafür sorgen `touch-action: manipulation`
+  (schaltet den Doppeltipp-Zoom ab) und Eingabefelder mit mindestens 16px
+  (darunter zoomt iOS Safari beim Fokus von selbst). Aufziehen mit zwei
+  Fingern bleibt möglich.
 
 ## Design
 
@@ -155,7 +179,7 @@ auch bei Farbenblindheit, im Sonnenlicht und im Ausdruck lesbar.
 
 ## Technisch
 
-- Eine Datei, ~2.000 Zeilen: HTML + CSS + JavaScript, keine Frameworks
+- Eine Datei, ~2.600 Zeilen: HTML + CSS + JavaScript, keine Frameworks
 - Firebase Web SDK v10 wird zur Laufzeit als ES-Modul von `gstatic.com` geladen
 - Diagramme sind handgeschriebenes SVG, der QR-Code-Encoder (Byte-Modus,
   Fehlerkorrektur M, Version 1–10) ebenfalls – dadurch keine externen Skripte

@@ -2148,10 +2148,12 @@ async function shopWrite(d, data){
   const alt = store.shopping.filter(r => r.kind !== "skip" && r.drinkId === d.id && r.id !== shopKey(d.id));
   for (const r of alt) await store.remove("shopping", r.id);
 }
+/* Nimmt eine Position von der Liste. d fehlt bei freien Notizen – die haben
+   kein Getränk und damit auch keine feste Kennung. */
 async function shopDrop(d, row){
   const ids = {};
-  if (row) ids[row.id] = true;
-  ids[shopKey(d.id)] = true;
+  if (row && row.id) ids[row.id] = true;
+  if (d) ids[shopKey(d.id)] = true;
   for (const id of Object.keys(ids)) await store.remove("shopping", id);
 }
 
@@ -2171,7 +2173,13 @@ async function shopSetQty(it, qty){
   renderAll();
 }
 
-$("#shopList").addEventListener("click", async e => {
+$("#shopList").addEventListener("click", e => {
+  shopAction(e).catch(err => { console.error(err); toast("Das hat nicht geklappt"); });
+});
+
+/* Eigene Funktion, damit ein Fehler nicht unbemerkt in einer offenen
+   Zusage hängen bleibt – genau daran scheiterte das Löschen freier Notizen. */
+async function shopAction(e){
   const b = e.target.closest("[data-act]"); if (!b) return;
   const row = e.target.closest("[data-key]"); if (!row) return;
   const it = shopModel().find(x => x.key === row.dataset.key); if (!it) return;
@@ -2198,12 +2206,17 @@ $("#shopList").addEventListener("click", async e => {
   }
 
   if (act === "drop"){
-    if (it.auto){
+    /* Das Kreuz heißt immer dasselbe: die Zeile soll weg. Bei einem Getränk
+       muss dafür beides passieren – die eigene Position löschen und den
+       automatischen Vorschlag stummschalten. Sonst stünde die Zeile sofort
+       wieder da und es sähe aus, als sei nichts geschehen. */
+    if (d){
+      await shopDrop(d, it.row);
       await store.set("shopping", skipKey(d.id), { kind:"skip", drinkId: d.id, name:"", qty:0,
                                                    note:"", at: new Date().toISOString() });
-      toast("Ausgeblendet bis zur nächsten Zählung");
+      toast("Von der Liste genommen – erscheint nach der nächsten Zählung wieder");
     } else {
-      await shopDrop(d, it.row);
+      await shopDrop(null, it.row);
       toast("Von der Liste genommen");
     }
     renderAll(); return;
@@ -2211,7 +2224,7 @@ $("#shopList").addEventListener("click", async e => {
 
   if (act === "buy"){
     if (!d){                              // freie Notiz: nur abhaken, nichts zu buchen
-      await store.remove("shopping", it.row.id);
+      await shopDrop(null, it.row);
       toast("Erledigt"); renderAll(); return;
     }
     qtySheet({
@@ -2231,7 +2244,7 @@ $("#shopList").addEventListener("click", async e => {
       }
     });
   }
-});
+}
 
 $("#buyList").addEventListener("click", e => {
   const b = e.target.closest("[data-del]"); if (!b) return;

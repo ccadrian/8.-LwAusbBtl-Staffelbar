@@ -1,0 +1,258 @@
+{
+  "app": "staffelbar",
+  "version": "1.1",
+  "barId": "staffelbar",
+  "exportedAt": "2026-09-11T17:25:24.757360Z",
+  "hinweis": "Sicherung vor dem Zuruecksetzen. Einspielbar ueber Mehr -> Daten -> JSON-Backup.",
+  "drinks": [
+    {
+      "id": "EXdD63TIXLfNalkQE1Jk",
+      "packSize": 20,
+      "packName": "Kasten",
+      "minStock": 20,
+      "unit": "Flaschen",
+      "name": "Paulaner Spezi",
+      "createdAt": "2026-09-10T18:13:13.203Z",
+      "category": "Alkohol Frei"
+    },
+    {
+      "id": "FIScvmoQysX06H7a5gua",
+      "minStock": 20,
+      "packName": "Kasten",
+      "createdAt": "2026-09-10T18:13:51.665Z",
+      "packSize": 20,
+      "category": "Alkohol Frei",
+      "name": "Paulaner Spezi Zero",
+      "unit": "Flaschen"
+    }
+  ],
+  "counts": [
+    {
+      "id": "4BWsAUaEwKQliKC2JpVM",
+      "at": "2026-09-11T08:20:34.909Z",
+      "note": "",
+      "qty": 0,
+      "session": "ee9477c3-9201-4248-b625-bc5e24c030e4",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk"
+    },
+    {
+      "id": "8RX9MOBCBOmT39ogsvBV",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "qty": 1,
+      "session": "20ee61bf-4b9c-4e7f-8975-880850e2cd7a",
+      "note": "",
+      "at": "2026-09-10T18:19:21.666Z"
+    },
+    {
+      "id": "A2iDsRH7RddM2ze0jAEv",
+      "note": "",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "singles": 18,
+      "qty": 18,
+      "packs": 0,
+      "session": "bf2338f6-6709-4955-967e-0bb42a45977e",
+      "at": "2026-09-11T12:35:57.514Z"
+    },
+    {
+      "id": "B7fjdP8yRE1jibVQC9QJ",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "at": "2026-09-11T11:28:11.737Z",
+      "packs": 0,
+      "session": "76bb71d2-917e-4b8d-80e9-8562f1970407",
+      "note": "",
+      "singles": 22,
+      "qty": 22
+    },
+    {
+      "id": "BdU2s493p6HKf4rHqlQj",
+      "note": "",
+      "qty": 0,
+      "at": "2026-09-10T18:18:32.721Z",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "session": "273b97a8-872f-41a3-9380-26fcce631299"
+    },
+    {
+      "id": "CqcA0VVPt74emYrjcUNj",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "session": "192e6e80-478b-465d-ab41-d88de6affd40",
+      "singles": 18,
+      "qty": 18,
+      "note": "",
+      "packs": 0,
+      "at": "2026-09-11T12:35:57.572Z"
+    },
+    {
+      "id": "CucSj5PW43TqoxNdmGCf",
+      "at": "2026-09-10T18:19:11.761Z",
+      "qty": 2,
+      "note": "",
+      "session": "7fe0a6ae-79ff-4d4d-80c0-498b95bc222b",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk"
+    },
+    {
+      "id": "HdzYD5NAUwOrfVbhWsPb",
+      "singles": 44,
+      "at": "2026-09-11T11:28:11.737Z",
+      "session": "76bb71d2-917e-4b8d-80e9-8562f1970407",
+      "note": "",
+      "packs": 0,
+      "drinkId": "FIScvmoQysX06H7a5gua",
+      "qty": 44
+    },
+    {
+      "id": "KHyOJ4rSwVs4IkTDYHOq",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "singles": 3,
+      "note": "",
+      "packs": 2,
+      "session": "2a67b1a7-7382-4e3c-87e5-2fd1adee2f8a",
+      "qty": 43,
+      "at": "2026-09-11T12:37:43.484Z"
+    },
+    {
+      "id": "M7obXBPUHzGbFIPILbtN",
+      "singles": 12,
+      "note": "",
+      "session": "2a67b1a7-7382-4e3c-87e5-2fd1adee2f8a",
+      "packs": 0,
+      "qty": 12,
+      "drinkId": "FIScvmoQysX06H7a5gua",
+      "at": "2026-09-11T12:37:43.484Z"
+    },
+    {
+      "id": "NGpnczU0SSirSF7yiQLJ",
+      "session": "3e5dd213-6f03-4bb0-9f88-dfb07e283a6d",
+      "at": "2026-09-10T18:16:07.667Z",
+      "drinkId": "FIScvmoQysX06H7a5gua",
+      "note": "",
+      "qty": 4
+    },
+    {
+      "id": "bmJMKjUxFrGQ2eyczwPG",
+      "at": "2026-09-11T08:18:26.819Z",
+      "note": "",
+      "qty": 60,
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "session": "a6fe861d-a720-483d-8ff8-2e20f9cd6f93"
+    },
+    {
+      "id": "dpp5MP1RqVo0hN6UOE3f",
+      "note": "",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "at": "2026-09-10T18:19:05.504Z",
+      "session": "c0f53a02-6e06-4c43-b910-cfa4b728e1cb",
+      "qty": 2
+    },
+    {
+      "id": "eyu4G7w9ne42K6fUaqeZ",
+      "qty": 8,
+      "note": "",
+      "at": "2026-09-10T18:16:07.667Z",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "session": "3e5dd213-6f03-4bb0-9f88-dfb07e283a6d"
+    },
+    {
+      "id": "nlipa88dY0wiCW4kZ9ia",
+      "qty": 0,
+      "session": "71e08730-c388-412a-a570-445d00342cfe",
+      "note": "",
+      "at": "2026-09-10T18:18:59.398Z",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk"
+    },
+    {
+      "id": "xZytIA3NsCBTeSHpRlhy",
+      "qty": 6,
+      "note": "",
+      "at": "2026-09-10T18:18:48.780Z",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "session": "c7a8dea5-9eb0-4e7f-ab27-e0bbd1223c8a"
+    },
+    {
+      "id": "xcD7EbkpkRNYvnj7fupv",
+      "note": "",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "qty": 4,
+      "session": "91c510ce-dae1-44bf-889d-cd80d7300216",
+      "at": "2026-09-10T18:19:16.118Z"
+    },
+    {
+      "id": "xe4mNwZ9SFNcQfsme7dU",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "at": "2026-09-10T18:16:11.933Z",
+      "session": "0408828e-5416-4aae-9353-41bddc8bebc6",
+      "qty": 3,
+      "note": ""
+    },
+    {
+      "id": "yB1rGb2R0M4ASjxfOz1n",
+      "qty": 2,
+      "note": "",
+      "at": "2026-09-10T18:16:15.348Z",
+      "session": "5ed0ceb1-ba67-4446-9a22-221c08a29578",
+      "drinkId": "EXdD63TIXLfNalkQE1Jk"
+    }
+  ],
+  "purchases": [
+    {
+      "id": "GG4mh36Nkmdu116pgVfg",
+      "singles": 0,
+      "note": "über die Einkaufsliste",
+      "drinkId": "FIScvmoQysX06H7a5gua",
+      "packs": 3,
+      "qty": 60,
+      "at": "2026-09-11T12:36:37.325Z"
+    },
+    {
+      "id": "T5lhmeBvxEthcPRUSmhT",
+      "at": "2026-09-10T18:14:58.846Z",
+      "qty": 24,
+      "drinkId": "FIScvmoQysX06H7a5gua",
+      "note": ""
+    },
+    {
+      "id": "drmRGBecSXifS1S0cI3k",
+      "singles": 0,
+      "note": "über die Einkaufsliste",
+      "at": "2026-09-11T12:36:34.371Z",
+      "qty": 60,
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "packs": 3
+    },
+    {
+      "id": "levnOH83DDRrNth5bIPB",
+      "at": "2026-09-11T12:20:38.731Z",
+      "packs": 0,
+      "drinkId": "EXdD63TIXLfNalkQE1Jk",
+      "singles": 27,
+      "qty": 27,
+      "note": ""
+    },
+    {
+      "id": "zyg339SACGoBvM9PTywp",
+      "drinkId": "FIScvmoQysX06H7a5gua",
+      "qty": 5,
+      "note": "",
+      "at": "2026-09-10T18:15:05.635Z"
+    }
+  ],
+  "shopping": [
+    {
+      "id": "d_FIScvmoQysX06H7a5gua",
+      "name": "",
+      "drinkId": "FIScvmoQysX06H7a5gua",
+      "qty": 60,
+      "note": "",
+      "kind": "item",
+      "at": "2026-09-11T16:33:29.616Z"
+    },
+    {
+      "id": "s_FIScvmoQysX06H7a5gua",
+      "name": "",
+      "note": "",
+      "drinkId": "FIScvmoQysX06H7a5gua",
+      "qty": 0,
+      "kind": "skip",
+      "at": "2026-09-11T16:33:21.597Z"
+    }
+  ]
+}

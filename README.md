@@ -35,6 +35,7 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 | **Erinnerung** | „Bald nachkaufen“ steht ganz oben auf der Startseite, sortiert nach Dringlichkeit – im Klartext: „nur noch 1 Kasten im Lager“. |
 | **Warnschwelle** | Unter **Mehr → Einstellungen** einstellbar, ab wie vielen Kästen ein Getränk als knapp gilt (Standard: 1 Kasten). Dazu wie bisher die Reichweite in Tagen. Beide Schwellen gelten für die **ganze Bar**, nicht nur für das Telefon, auf dem sie gesetzt wurden. |
 | **Verwalten** | Getränke anlegen, bearbeiten, löschen; Export als CSV und JSON; JSON-Backup einspielen. |
+| **Zurücksetzen** | Fünfmal auf die Versionszeile ganz unten in *Mehr* tippen öffnet die **Gefahrenzone**. Dort lassen sich – nur nach Eingabe des Master-Codes – entweder alle Zählungen, Nachkäufe und die Einkaufsliste löschen (Getränke bleiben) oder wirklich alles. Der Dialog zählt vorher auf, was betroffen ist, und bietet den JSON-Export an. Einstellungen und Codes bleiben in beiden Fällen erhalten. |
 | **Zugangscode** | Beim Öffnen fragt die Seite einen Zahlencode ab; jedes Gerät merkt ihn sich einmal. Er steht als Hash in der Datenbank, nicht in der Seite – Ändern unter *Mehr → Zugang* wirkt damit auf allen Geräten. Ändern und Entfernen gehen nur nach Eingabe des **Master-Codes**, und der steht ausschließlich als Konstante `MASTER_CODE` in `index.html`. Siehe unten, was das leistet und was nicht. |
 | **QR-Code** | Wird im Tool selbst erzeugt (keine externe Bibliothek) und zeigt auf die eigene GitHub-Pages-URL. Direkt ausdruckbar für den Tresen. |
 

@@ -9,44 +9,86 @@
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <title>Staffelbar · Bestand</title>
+<script>
+/* Laeuft vor dem ersten Zeichnen: sonst blitzt kurz die falsche Helligkeit
+   auf, bevor das Hauptskript am Seitenende ueberhaupt geladen ist. */
+try {
+  var t = localStorage.getItem("staffelbar.theme");
+  if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+} catch (e) {}
+</script>
 <style>
 /* =====================================================================
-   Monochrom. Keine Farbe, nur Kontrast, Fläche und Typo.
-   Hell und dunkel folgen der Systemeinstellung des Telefons.
+   Staffelbar – Gestaltung
+
+   Monochrom: keine Farbe, nur Kontrast, Flaeche und Typografie. Hell und
+   dunkel folgen der Systemeinstellung.
+
+   Zwei Regeln, die alles andere bestimmen:
+   1. Lesbar fuer alle. Jede Textfarbe erreicht mindestens 4,5:1 Kontrast,
+      Hilfstexte sind nicht kleiner als 13px, Tippflaechen nicht kleiner
+      als 48px.
+   2. Zuerst das Telefon. Alle Groessen sind fuer eine Hand am Tresen
+      gedacht; groessere Bildschirme bekommen nur mehr Rand.
    ===================================================================== */
 :root{
   color-scheme:light dark;
   --bg:#ffffff;
-  --bg-2:#fafafa;
+  --bg-2:#f7f7f8;
   --card:#ffffff;
-  --card-2:#f4f4f5;
-  --line:#e7e7e8;
-  --line-2:#d8d8da;
-  --fg:#09090b;
-  --fg-dim:#5b5b60;
-  --fg-faint:#9a9aa0;
-  --accent:#09090b;
+  --card-2:#f1f1f3;
+  --line:#e6e6e9;
+  --line-2:#d2d2d7;
+  --fg:#0b0b0d;
+  --fg-dim:#55555c;      /* 7,3:1 – Fliesstext zweiter Ordnung */
+  --fg-faint:#6b6b73;    /* 5,3:1 – Hilfstexte, fruehe 2,8:1 waren unlesbar */
+  --accent:#0b0b0d;
   --accent-ink:#ffffff;
-  --ring:rgba(9,9,11,.07);
-  --r:12px;
+  --ring:rgba(11,11,13,.08);
+  --shadow:0 1px 2px rgba(11,11,13,.04), 0 8px 24px rgba(11,11,13,.05);
+  --shadow-lift:0 6px 16px rgba(11,11,13,.10), 0 24px 48px rgba(11,11,13,.12);
+  --r:18px;              /* Karten */
+  --r-sm:14px;           /* Knoepfe, Felder */
+  --r-lg:28px;           /* Sheets */
   --tap:54px;
   --safe-b:env(safe-area-inset-bottom,0px);
 }
+/* Dunkel gilt in zwei Faellen: das System steht darauf und niemand hat
+   ausdruecklich Hell gewaehlt – oder Dunkel ist ausdruecklich gewaehlt.
+   Deshalb steht derselbe Satz Farben zweimal da. */
 @media (prefers-color-scheme:dark){
-  :root{
+  :root:not([data-theme="light"]){
     --bg:#000000;
-    --bg-2:#0c0c0d;
-    --card:#0e0e10;
-    --card-2:#1a1a1d;
-    --line:#232326;
-    --line-2:#313136;
+    --bg-2:#0d0d0f;
+    --card:#121214;
+    --card-2:#1d1d21;
+    --line:#26262a;
+    --line-2:#35353b;
     --fg:#fafafa;
-    --fg-dim:#a1a1a8;
-    --fg-faint:#6e6e76;
+    --fg-dim:#a8a8b0;
+    --fg-faint:#9a9aa2;  /* 7,5:1 auf Schwarz */
     --accent:#fafafa;
-    --accent-ink:#09090b;
-    --ring:rgba(250,250,250,.10);
+    --accent-ink:#0b0b0d;
+    --ring:rgba(250,250,250,.12);
+    --shadow:none;
+    --shadow-lift:0 12px 40px rgba(0,0,0,.6);
   }
+}
+:root[data-theme="dark"]{
+  --bg:#000000;
+  --bg-2:#0d0d0f;
+  --card:#121214;
+  --card-2:#1d1d21;
+  --line:#26262a;
+  --line-2:#35353b;
+  --fg:#fafafa;
+  --fg-dim:#a8a8b0;
+  --fg-faint:#9a9aa2;
+  --accent:#fafafa;
+  --accent-ink:#0b0b0d;
+  --ring:rgba(250,250,250,.12);
+  --shadow:none;
+  --shadow-lift:0 12px 40px rgba(0,0,0,.6);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0}
@@ -59,123 +101,123 @@ button,input,select,textarea,label,a,.tab,.chip,.srow,.item,.alert,.tick,.buyrow
 .pad button,.pad-quick button,.padfield{touch-action:manipulation}
 body{
   background:var(--bg);color:var(--fg);
-  font:16px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;
+  font:17px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;
   -webkit-font-smoothing:antialiased;
   letter-spacing:-.011em;
-  padding-bottom:calc(80px + var(--safe-b));
+  padding-bottom:calc(86px + var(--safe-b));
   overscroll-behavior-y:contain;
 }
-h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.022em}
+h1,h2,h3{margin:0;font-weight:640;letter-spacing:-.024em}
 button,input,select,textarea{font:inherit;color:inherit;letter-spacing:inherit}
 button{cursor:pointer;border:none;background:none}
 a{color:var(--fg)}
 .hide{display:none !important}
+:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 
-/* ---------- layout ---------- */
-.wrap{max-width:680px;margin:0 auto;padding:0 18px}
+/* ---------- Aufbau ---------- */
+.wrap{max-width:640px;margin:0 auto;padding:0 18px}
 header.top{
   position:sticky;top:0;z-index:40;
-  background:var(--bg);
-  background:color-mix(in srgb,var(--bg) 88%,transparent);
-  backdrop-filter:saturate(180%) blur(14px);
+  background:color-mix(in srgb,var(--bg) 86%,transparent);
+  backdrop-filter:saturate(180%) blur(16px);
   border-bottom:1px solid var(--line);
 }
-.top-in{max-width:680px;margin:0 auto;padding:13px 18px;display:flex;align-items:center;gap:12px}
-.brand{font-size:17px;font-weight:600;letter-spacing:-.024em;flex:1;min-width:0;
+.top-in{max-width:640px;margin:0 auto;padding:12px 18px;display:flex;align-items:center;gap:12px}
+.brand{font-size:18px;font-weight:640;letter-spacing:-.026em;flex:1;min-width:0;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.brand small{display:block;font-size:12px;font-weight:400;color:var(--fg-faint);letter-spacing:-.005em;margin-top:1px}
-.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--fg-faint)}
+.brand small{display:block;font-size:13px;font-weight:400;color:var(--fg-faint);
+  letter-spacing:-.005em;margin-top:1px}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--fg-faint)}
 .dot.on{background:var(--fg)}
 .dot.off{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fg-faint)}
 .dot.err{background:transparent;box-shadow:inset 0 0 0 4px var(--fg)}
-.icon-btn{width:36px;height:36px;border-radius:9px;background:transparent;display:grid;place-items:center;
-  font-size:16px;flex:none;border:1px solid var(--line-2);color:var(--fg-dim)}
+.icon-btn{width:42px;height:42px;border-radius:13px;background:transparent;display:grid;
+  place-items:center;font-size:16px;flex:none;border:1px solid var(--line-2);color:var(--fg-dim);
+  transition:background .14s ease}
 .icon-btn:active{background:var(--card-2)}
 
-section.view{padding-top:20px}
-.section-title{font-size:11px;text-transform:uppercase;letter-spacing:.075em;color:var(--fg-faint);
-  margin:30px 0 10px;font-weight:600}
-.section-title:first-child{margin-top:6px}
+section.view{padding-top:18px}
+/* Ueberschriften in normaler Schreibweise statt Versalien: freundlicher zu
+   lesen und weniger nach Formular. */
+.section-title{font-size:14px;letter-spacing:-.012em;color:var(--fg-faint);
+  margin:28px 0 10px;font-weight:600}
+.section-title:first-child{margin-top:4px}
 
-/* ---------- cards ---------- */
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:10px}
-.card.tight{padding:12px 14px}
+/* ---------- Karten ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:18px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card.tight{padding:14px 16px}
 .muted{color:var(--fg-dim)}
 .faint{color:var(--fg-faint)}
-.small{font-size:13.5px}
-.tiny{font-size:11.5px}
+.small{font-size:14.5px}
+.tiny{font-size:13px}
 .row{display:flex;align-items:center;gap:10px}
 .row.wrap{flex-wrap:wrap}
 .spacer{flex:1}
-.empty{padding:34px 14px;text-align:center;color:var(--fg-faint);font-size:14px;line-height:1.55}
+.empty{padding:32px 16px;text-align:center;color:var(--fg-faint);font-size:15px;line-height:1.55}
 
-/* ---------- buttons ---------- */
+/* ---------- Knoepfe ---------- */
 .btn{
-  min-height:var(--tap);padding:0 18px;border-radius:10px;background:transparent;
-  border:1px solid var(--line-2);font-weight:510;display:inline-flex;align-items:center;
-  justify-content:center;gap:8px;font-size:15.5px;transition:background .12s ease;
+  min-height:var(--tap);padding:0 20px;border-radius:var(--r-sm);background:transparent;
+  border:1px solid var(--line-2);font-weight:560;display:inline-flex;align-items:center;
+  justify-content:center;gap:8px;font-size:16px;letter-spacing:-.012em;
+  transition:background .14s ease,transform .1s ease;
 }
-.btn:active{background:var(--card-2)}
-.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:560}
-.btn.primary:active{opacity:.86;background:var(--accent)}
-.btn.danger{background:transparent;color:var(--fg);border-color:var(--line-2);font-weight:510}
+.btn:active{background:var(--card-2);transform:scale(.985)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.primary:active{opacity:.9;background:var(--accent)}
+.btn.danger{background:transparent;color:var(--fg);border-color:var(--fg)}
 .btn.ghost{background:transparent;border-color:var(--line)}
-.btn.sm{min-height:38px;font-size:13.5px;padding:0 13px;border-radius:8px}
+.btn.sm{min-height:42px;font-size:14.5px;padding:0 14px;border-radius:11px}
 .btn.block{width:100%}
-.btn[disabled]{opacity:.38;pointer-events:none}
+.btn[disabled]{opacity:.4;pointer-events:none}
 .btn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 
-/* ---------- inputs ---------- */
-label.fld{display:block;margin-bottom:16px}
-label.fld > span{display:block;font-size:12.5px;font-weight:500;color:var(--fg-dim);
-  margin-bottom:7px;letter-spacing:-.006em}
+/* ---------- Eingaben ---------- */
+label.fld{display:block;margin-bottom:18px}
+label.fld > span{display:block;font-size:14.5px;font-weight:550;color:var(--fg);
+  margin-bottom:8px;letter-spacing:-.008em}
 input[type=text],input[type=number],input[type=date],input[type=datetime-local],
-input[type=file],select,textarea{
-  width:100%;min-height:48px;padding:12px 14px;border-radius:10px;background:var(--bg);
-  border:1px solid var(--line-2);outline:none;transition:border-color .12s,box-shadow .12s;
+input[type=password],input[type=file],select,textarea{
+  width:100%;min-height:52px;padding:13px 15px;border-radius:var(--r-sm);background:var(--bg);
+  border:1px solid var(--line-2);outline:none;transition:border-color .14s,box-shadow .14s;
   font-size:16px;   /* nicht kleiner - sonst zoomt iOS beim Fokus rein */
 }
 input::placeholder,textarea::placeholder{color:var(--fg-faint)}
-input:focus,select:focus,textarea:focus{border-color:var(--fg);box-shadow:0 0 0 3.5px var(--ring)}
-textarea{min-height:88px;resize:vertical;font-size:16px;line-height:1.45;
+input:focus,select:focus,textarea:focus{border-color:var(--fg);box-shadow:0 0 0 4px var(--ring)}
+textarea{min-height:92px;resize:vertical;font-size:16px;line-height:1.45;
   font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 select{appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--fg-dim) 50%),
     linear-gradient(135deg,var(--fg-dim) 50%,transparent 50%);
-  background-position:calc(100% - 19px) 22px,calc(100% - 14px) 22px;
-  background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:38px}
+  background-position:calc(100% - 20px) 24px,calc(100% - 15px) 24px;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:40px}
 
-/* chips */
-.chips{display:flex;gap:7px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none;-ms-overflow-style:none}
+/* Chips */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none;-ms-overflow-style:none}
 .chips::-webkit-scrollbar{display:none}
-.chip{flex:none;min-height:36px;padding:0 14px;border-radius:18px;background:transparent;
-  border:1px solid var(--line-2);font-size:13.5px;font-weight:500;color:var(--fg-dim);
-  display:inline-flex;align-items:center;white-space:nowrap}
-.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:550}
+.chip{flex:none;min-height:42px;padding:0 16px;border-radius:21px;background:transparent;
+  border:1px solid var(--line-2);font-size:14.5px;font-weight:540;color:var(--fg-dim);
+  display:inline-flex;align-items:center;white-space:nowrap;transition:background .14s ease}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
 
-/* ---------- Nachkauf-Erinnerung ---------- */
-/* Dringlichkeit ohne Farbe: gefüllter Punkt + kräftige Kontur = kritisch,
+/* ---------- Erinnerung ----------
+   Dringlichkeit ohne Farbe: gefuellter Punkt + kraeftige Kontur = kritisch,
    hohler Punkt + Haarlinie = Warnung. */
-.alert{display:flex;align-items:center;gap:13px;padding:14px;border-radius:var(--r);
-  margin-bottom:8px;border:1px solid var(--line);background:var(--card)}
-.alert.crit{border-color:var(--fg)}
+.alert{display:flex;align-items:center;gap:14px;padding:16px;border-radius:var(--r);
+  margin-bottom:10px;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow)}
+.alert.crit{border-color:var(--fg);border-width:1.5px}
 .alert .a-main{flex:1;min-width:0}
-.alert .a-name{font-weight:560;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  display:flex;align-items:center;gap:7px;letter-spacing:-.016em}
-.alert .a-name i{width:7px;height:7px;border-radius:50%;flex:none;background:var(--fg)}
+.alert .a-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  display:flex;align-items:center;gap:8px;letter-spacing:-.018em;font-size:17px}
+.alert .a-name i{width:8px;height:8px;border-radius:50%;flex:none;background:var(--fg)}
 .alert.warn .a-name i{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fg-faint)}
-.alert .a-sub{font-size:12.5px;color:var(--fg-dim);margin-top:3px;line-height:1.4}
+.alert .a-sub{font-size:13.5px;color:var(--fg-dim);margin-top:4px;line-height:1.45}
 .alert .a-days{text-align:right;flex:none;line-height:1.05}
-.alert .a-days b{display:block;font-size:22px;font-weight:600;letter-spacing:-.035em}
-.alert .a-days span{font-size:10px;color:var(--fg-faint);text-transform:uppercase;
-  letter-spacing:.06em;font-weight:500}
+.alert .a-days b{display:block;font-size:24px;font-weight:640;letter-spacing:-.035em}
+.alert .a-days span{font-size:11.5px;color:var(--fg-faint);font-weight:500}
 
-.savebar{position:fixed;left:0;right:0;bottom:calc(66px + var(--safe-b));z-index:35;padding:0 18px 10px;
-  pointer-events:none}
-.savebar .in{max-width:680px;margin:0 auto;pointer-events:auto}
-.savebar .btn{box-shadow:0 6px 24px rgba(0,0,0,.16)}
-
-/* ---------- Zaehlrunde: ein Getraenk nach dem anderen ----------
+/* ---------- Zaehlrunde ----------
    Waehrend einer Runde legt sich der Bildschirm als Vollbild ueber alles:
    keine Tableiste, kein Kopf, kein Scrollen. Alles was zaehlt liegt in
    Daumennaehe, und ein Fehlgriff auf einen Tab kostet nicht den Platz. */
@@ -185,251 +227,301 @@ body.counting{padding-bottom:0;overscroll-behavior:none}
 
 #roundZone.rz{position:fixed;inset:0;z-index:60;background:var(--bg);
   display:flex;flex-direction:column;align-items:center;
-  padding:calc(8px + env(safe-area-inset-top,0px)) 16px calc(8px + var(--safe-b))}
+  padding:calc(10px + env(safe-area-inset-top,0px)) 16px calc(10px + var(--safe-b))}
 /* Auch am grossen Bildschirm bleibt die Runde telefonbreit – ein Zahlenblock
    ueber 1000 Pixel ist niemandem eine Hilfe. */
 #roundZone.rz > *{width:100%;max-width:460px}
 #roundZone .r-head{flex:none;padding-bottom:2px}
 #roundZone .r-body{flex:1;min-height:0;display:flex;flex-direction:column}
 #roundZone .r-body.scroll{overflow-y:auto;-webkit-overflow-scrolling:touch}
-#roundZone .r-foot2{flex:none;padding-top:10px}
+#roundZone .r-foot2{flex:none;padding-top:12px}
 
 /* Der Zahlenblock nimmt, was uebrig bleibt – auf grossen Telefonen werden
    die Tasten groesser statt dass unten Luft steht. */
 #roundZone .r-pad{flex:1;min-height:0;display:flex;flex-direction:column}
 #roundZone .r-pad .pad{flex:1;min-height:186px;grid-auto-rows:1fr;margin-top:8px}
-#roundZone .r-pad .pad button{height:auto;font-size:24px}
+#roundZone .r-pad .pad button{height:auto;font-size:26px}
 
-.progress{display:flex;align-items:center;gap:11px;margin-bottom:14px}
-.progress .p-bar{flex:1;height:4px;border-radius:2px;background:var(--card-2);overflow:hidden}
+.progress{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.progress .p-bar{flex:1;height:5px;border-radius:3px;background:var(--card-2);overflow:hidden}
 .progress .p-bar > i{display:block;height:100%;background:var(--accent);transition:width .18s ease}
-.progress .p-txt{font-size:12px;color:var(--fg-faint);font-variant-numeric:tabular-nums;flex:none}
+.progress .p-txt{font-size:13px;color:var(--fg-faint);font-variant-numeric:tabular-nums;flex:none}
 
 .round-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
   padding:18px 16px;margin-bottom:12px}
-.round-cat{font-size:11px;text-transform:uppercase;letter-spacing:.075em;color:var(--fg-faint);
-  font-weight:600;margin-bottom:5px}
-.round-name{font-size:23px;font-weight:620;letter-spacing:-.03em;line-height:1.2}
-.round-last{font-size:13px;color:var(--fg-dim);margin-top:6px}
+.round-cat{font-size:13px;letter-spacing:-.008em;color:var(--fg-faint);font-weight:560;margin-bottom:4px}
+.round-name{font-size:25px;font-weight:640;letter-spacing:-.032em;line-height:1.18}
+.round-last{font-size:14px;color:var(--fg-dim);margin-top:7px;line-height:1.4}
 
 /* Kopf der Runde: Fortschritt, Zaehlerstand, Ausstieg */
-.r-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
-.r-top .p-bar{flex:1;height:4px;border-radius:2px;background:var(--card-2);overflow:hidden}
+.r-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.r-top .p-bar{flex:1;height:5px;border-radius:3px;background:var(--card-2);overflow:hidden}
 .r-top .p-bar > i{display:block;height:100%;background:var(--accent);transition:width .2s ease}
-.r-top .r-count{font-size:12.5px;color:var(--fg-dim);font-variant-numeric:tabular-nums;flex:none}
-.r-top button{width:34px;height:34px;flex:none;border-radius:9px;border:1px solid var(--line-2);
-  color:var(--fg-dim);font-size:15px;display:grid;place-items:center}
+.r-top .r-count{font-size:13.5px;color:var(--fg-dim);font-variant-numeric:tabular-nums;flex:none;
+  font-weight:550}
+.r-top button{width:40px;height:40px;flex:none;border-radius:13px;border:1px solid var(--line-2);
+  color:var(--fg-dim);font-size:16px;display:grid;place-items:center}
 .r-top button:active{background:var(--card-2)}
 .r-top button[disabled]{opacity:.3;pointer-events:none}
-.r-top button:first-child{font-size:22px;line-height:0}
+.r-top button:first-child{font-size:24px;line-height:0}
 
 /* Getraenk ohne Kartenrahmen – der Rahmen kostet auf dem Telefon nur Platz */
-.r-drink{flex:none;padding:2px 0 10px}
-.r-drink .round-name{font-size:26px}
+.r-drink{flex:none;padding:2px 0 12px}
+.r-drink .round-name{font-size:28px}
 
 /* Kaesten + Einzelflaschen nebeneinander */
-.padfields{display:flex;gap:9px;margin-top:15px}
-.padfield{flex:1;min-width:0;border-radius:11px;border:1px solid var(--line-2);background:var(--bg-2);
-  padding:9px 12px 10px;text-align:left;display:block}
+.padfields{display:flex;gap:10px;margin-top:14px}
+.padfield{flex:1;min-width:0;border-radius:var(--r-sm);border:1px solid var(--line-2);
+  background:var(--bg-2);padding:10px 14px 12px;text-align:left;display:block;
+  transition:border-color .14s,box-shadow .14s}
 .padfield.on{border-color:var(--fg);background:var(--card);box-shadow:0 0 0 3px var(--ring)}
-.padfield .pf-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-faint);
-  font-weight:600}
-.padfield .pf-val{font-size:28px;font-weight:620;letter-spacing:-.035em;line-height:1.25;
-  font-variant-numeric:tabular-nums}
+.padfield .pf-lbl{font-size:12.5px;letter-spacing:-.004em;color:var(--fg-faint);font-weight:600;
+  display:block}
+.padfield .pf-val{font-size:30px;font-weight:640;letter-spacing:-.035em;line-height:1.2;
+  font-variant-numeric:tabular-nums;display:block}
 .padfield.on .pf-val{color:var(--fg)}
 .padfield .pf-val.empty{color:var(--fg-faint)}
-.padtotal{margin-top:11px;font-size:13.5px;color:var(--fg-dim);text-align:center}
-.padtotal b{color:var(--fg);font-weight:600}
+.padtotal{margin-top:12px;font-size:14.5px;color:var(--fg-dim);text-align:center;min-height:22px}
+.padtotal b{color:var(--fg);font-weight:640}
+
+/* Feste Mindesthoehe: der Hinweis erscheint beim ersten Tastendruck und darf
+   den Zahlenblock nicht nach unten schieben – sonst trifft der naechste
+   schnelle Tipp die falsche Taste. */
+.padhint{margin-top:12px;padding:9px 13px;border-radius:13px;background:var(--card-2);
+  font-size:13.5px;color:var(--fg-dim);line-height:1.45;text-align:center;
+  min-height:58px;display:flex;align-items:center;justify-content:center}
+.padhint.warn{background:transparent;border:1.5px solid var(--fg);color:var(--fg)}
+.padhint.empty{background:transparent}
+.padhint > span{display:block}
+.padhint b{color:var(--fg);font-weight:640}
 
 .round-nav{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:12px}
 .round-foot{display:flex;gap:10px;margin-top:10px}
 .round-foot .btn{flex:1}
 
 /* Uebersicht: was ist gezaehlt, was fehlt noch */
-.tick{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--line);
-  border-radius:10px;margin-bottom:7px;background:var(--card);width:100%;text-align:left}
-.tick.cur{border-color:var(--fg)}
-.tick .t-mark{width:19px;height:19px;border-radius:50%;flex:none;border:1.5px solid var(--line-2);
-  display:grid;place-items:center;font-size:11px;color:var(--bg)}
+.tick{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--line);
+  border-radius:var(--r-sm);margin-bottom:8px;background:var(--card);width:100%;text-align:left}
+.tick.cur{border-color:var(--fg);border-width:1.5px}
+.tick .t-mark{width:22px;height:22px;border-radius:50%;flex:none;border:1.5px solid var(--line-2);
+  display:grid;place-items:center;font-size:12px;color:var(--bg)}
 .tick.ok .t-mark{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .tick.skip .t-mark{border-style:dashed}
 .tick .t-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  font-weight:500;letter-spacing:-.014em}
-.tick .t-val{font-size:13px;color:var(--fg-dim);flex:none;font-variant-numeric:tabular-nums}
-
-/* Hinweis unter dem Zahlenblock: was die eingetippte Menge bedeutet */
-/* Feste Mindesthöhe: der Hinweis erscheint beim ersten Tastendruck und darf
-   den Zahlenblock nicht nach unten schieben – sonst trifft der nächste
-   schnelle Tipp die falsche Taste. */
-.padhint{margin-top:11px;padding:8px 12px;border-radius:9px;background:var(--card-2);
-  font-size:13px;color:var(--fg-dim);line-height:1.45;text-align:center;
-  min-height:56px;display:flex;align-items:center;justify-content:center}
-.padhint.warn{background:transparent;border:1px solid var(--fg);color:var(--fg)}
-.padhint.empty{background:transparent}
-.padhint > span{display:block}
-.padhint b{color:var(--fg);font-weight:600}
-
-/* ---------- Bestandsliste auf der Startseite ---------- */
-.srow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:var(--card);
-  border:1px solid var(--line);border-radius:var(--r);padding:13px 14px;margin-bottom:8px}
-.srow.done{border-color:var(--fg)}
-.srow .s-dot{width:7px;height:7px;border-radius:50%;flex:none;background:transparent}
-.srow .s-dot.warn{box-shadow:inset 0 0 0 1.5px var(--fg-faint)}
-.srow .s-dot.crit{background:var(--fg)}
-.srow .s-body{flex:1;min-width:0}
-.srow .s-name{display:block;font-weight:545;letter-spacing:-.016em;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.srow .s-meta{display:block;font-size:12.5px;color:var(--fg-faint);margin-top:3px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.srow .s-stock{flex:none;text-align:right;line-height:1.2;padding-left:4px}
-.srow .s-stock b{display:block;font-size:16px;font-weight:620;letter-spacing:-.025em;
-  font-variant-numeric:tabular-nums}
-.srow .s-stock span{font-size:11px;color:var(--fg-faint)}
-.srow.done .s-stock b{color:var(--fg)}
+  font-weight:550;letter-spacing:-.014em}
+.tick .t-val{font-size:14px;color:var(--fg-dim);flex:none;font-variant-numeric:tabular-nums}
 
 /* ---------- Zusammenfassung nach der Zaehlung ---------- */
-.sum-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.sum-row{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--line)}
 .sum-row:last-child{border-bottom:none}
 .sum-row .s-main{flex:1;min-width:0}
-.sum-row .s-name{font-weight:530;letter-spacing:-.014em;white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis}
-.sum-row .s-sub{font-size:12px;color:var(--fg-faint);margin-top:2px}
-.sum-row .s-val{flex:none;font-weight:620;font-size:16px;letter-spacing:-.025em;
+.sum-row .s-name{font-weight:580;letter-spacing:-.014em;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;font-size:16px}
+.sum-row .s-sub{font-size:13px;color:var(--fg-faint);margin-top:3px;line-height:1.4}
+.sum-row .s-val{flex:none;font-weight:640;font-size:19px;letter-spacing:-.025em;
   font-variant-numeric:tabular-nums}
 
 /* ---------- Einkaufsliste ---------- */
-.buyrow{display:flex;align-items:center;gap:12px;padding:12px 13px;background:var(--card);
-  border:1px solid var(--line);border-radius:var(--r);margin-bottom:8px}
-.buyrow.crit{border-color:var(--fg)}
-.buyrow .b-check{width:30px;height:30px;flex:none;border-radius:50%;border:1.5px solid var(--line-2);
-  display:grid;place-items:center;background:transparent;font-size:14px;color:var(--fg-dim)}
+.buyrow{display:flex;align-items:center;gap:13px;padding:14px;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r);margin-bottom:10px;box-shadow:var(--shadow)}
+.buyrow.crit{border-color:var(--fg);border-width:1.5px}
+.buyrow .b-check{width:40px;height:40px;flex:none;border-radius:50%;border:1.5px solid var(--line-2);
+  display:grid;place-items:center;background:transparent;font-size:17px;color:var(--fg-dim);
+  transition:background .14s ease}
 .buyrow .b-check:active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .buyrow .b-main{flex:1;min-width:0}
-.buyrow .b-name{font-weight:540;letter-spacing:-.014em;display:flex;align-items:center;gap:7px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.buyrow .b-sub{font-size:12.5px;color:var(--fg-faint);margin-top:3px;line-height:1.4}
-.buyrow .b-x{width:30px;height:30px;flex:none;border-radius:8px;color:var(--fg-faint);font-size:15px;
-  display:grid;place-items:center}
+.buyrow .b-name{font-weight:580;letter-spacing:-.016em;display:flex;align-items:center;gap:8px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:17px}
+.buyrow .b-sub{font-size:13.5px;color:var(--fg-dim);margin-top:4px;line-height:1.45}
+.buyrow .b-x{width:40px;height:40px;flex:none;border-radius:13px;color:var(--fg-faint);
+  font-size:17px;display:grid;place-items:center}
+.buyrow .b-x:active{background:var(--card-2)}
 
-/* Menge direkt in der Zeile ändern – in Kästen, wenn es welche gibt */
-.buyrow .b-step{display:flex;align-items:center;gap:8px;margin-top:11px}
-.buyrow .b-step button{height:40px;border-radius:9px;border:1px solid var(--line-2);
-  background:transparent;color:var(--fg)}
+/* Menge direkt in der Zeile aendern – in Kaesten, wenn es welche gibt */
+.buyrow .b-step{display:flex;align-items:center;gap:9px;margin-top:12px}
+.buyrow .b-step button{height:46px;border-radius:13px;border:1px solid var(--line-2);
+  background:transparent;color:var(--fg);transition:background .14s ease}
 .buyrow .b-step button:active{background:var(--card-2)}
-.buyrow .b-step .b-pm{width:46px;flex:none;font-size:21px;line-height:1;display:grid;place-items:center}
+.buyrow .b-step .b-pm{width:52px;flex:none;font-size:24px;line-height:1;display:grid;place-items:center}
 .buyrow .b-step .b-val{flex:1;min-width:0;background:var(--bg-2);border-color:var(--line);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2;padding:0 8px}
-.buyrow .b-step .b-val b{font-size:15px;font-weight:620;letter-spacing:-.02em;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2;
+  padding:0 8px}
+.buyrow .b-step .b-val b{font-size:16px;font-weight:640;letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;white-space:nowrap}
-.buyrow .b-step .b-val span{font-size:10.5px;color:var(--fg-faint);white-space:nowrap}
+.buyrow .b-step .b-val span{font-size:11.5px;color:var(--fg-faint);white-space:nowrap}
 
-/* ---------- Umschalter (Segmented) ---------- */
-.seg{display:inline-flex;padding:2px;border:1px solid var(--line-2);border-radius:9px;gap:2px}
-.seg button{min-height:32px;padding:0 12px;border-radius:7px;font-size:13px;font-weight:500;
-  color:var(--fg-dim)}
-.seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:560}
+/* ---------- Umschalter ---------- */
+.seg{display:inline-flex;padding:3px;border:1px solid var(--line-2);border-radius:13px;gap:3px}
+.seg button{min-height:36px;padding:0 14px;border-radius:10px;font-size:14px;font-weight:540;
+  color:var(--fg-dim);transition:background .14s ease}
+.seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:600}
 
-/* ---------- Tab-Leiste ---------- */
+/* ---------- Bestandsliste auf der Startseite ---------- */
+.srow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r);padding:15px 16px;margin-bottom:10px;
+  box-shadow:var(--shadow);transition:transform .1s ease}
+.srow:active{transform:scale(.99)}
+.srow.done{border-color:var(--fg);border-width:1.5px}
+.srow .s-dot{width:8px;height:8px;border-radius:50%;flex:none;background:transparent}
+.srow .s-dot.warn{box-shadow:inset 0 0 0 1.5px var(--fg-faint)}
+.srow .s-dot.crit{background:var(--fg)}
+.srow .s-body{flex:1;min-width:0}
+.srow .s-name{display:block;font-weight:580;letter-spacing:-.018em;font-size:17px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow .s-meta{display:block;font-size:13.5px;color:var(--fg-dim);margin-top:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow .s-stock{flex:none;text-align:right;line-height:1.25;padding-left:4px}
+.srow .s-stock b{display:block;font-size:17px;font-weight:640;letter-spacing:-.025em;
+  font-variant-numeric:tabular-nums}
+.srow .s-stock span{font-size:12.5px;color:var(--fg-faint)}
+.srow.done .s-stock b{color:var(--fg)}
+
+.savebar{position:fixed;left:0;right:0;bottom:calc(72px + var(--safe-b));z-index:35;
+  padding:0 18px 10px;pointer-events:none}
+.savebar .in{max-width:640px;margin:0 auto;pointer-events:auto}
+.savebar .btn{box-shadow:var(--shadow-lift)}
+
+/* ---------- Tableiste ---------- */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:50;
-  background:var(--bg);
-  background:color-mix(in srgb,var(--bg) 90%,transparent);
-  backdrop-filter:saturate(180%) blur(14px);
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:saturate(180%) blur(16px);
   border-top:1px solid var(--line);padding-bottom:var(--safe-b)}
-.tabs-in{max-width:680px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
-.tab{height:66px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
-  color:var(--fg-faint);font-size:10.5px;font-weight:500;letter-spacing:-.002em}
-.tab svg{width:21px;height:21px;stroke:currentColor;stroke-width:1.6;fill:none;
+.tabs-in{max-width:640px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);
+  padding:6px 6px 4px}
+.tab{height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  color:var(--fg-faint);font-size:11.5px;font-weight:550;letter-spacing:-.004em;
+  border-radius:14px;transition:color .14s ease,background .14s ease}
+.tab svg{width:23px;height:23px;stroke:currentColor;stroke-width:1.6;fill:none;
   stroke-linecap:round;stroke-linejoin:round;display:block}
-.tab.on{color:var(--fg)}
-.tab.on svg{stroke-width:1.9}
+.tab.on{color:var(--fg);background:var(--card-2)}
+.tab.on svg{stroke-width:2}
 
 /* ---------- Sperrbildschirm ---------- */
 .lock{position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;
   align-items:center;justify-content:center;padding:24px}
 .lock-in{width:100%;max-width:330px;text-align:center}
-.lock-title{font-size:22px;font-weight:620;letter-spacing:-.03em}
-.lock-sub{font-size:14px;color:var(--fg-dim);margin-top:5px}
-.lock-dots{display:flex;justify-content:center;gap:11px;margin:26px 0 22px;min-height:14px}
-.lock-dots i{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--fg-faint)}
+.lock-title{font-size:24px;font-weight:640;letter-spacing:-.03em}
+.lock-sub{font-size:15px;color:var(--fg-dim);margin-top:6px}
+.lock-dots{display:flex;justify-content:center;gap:12px;margin:28px 0 24px;min-height:14px}
+.lock-dots i{width:13px;height:13px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--fg-faint)}
 .lock-dots i.on{background:var(--fg);box-shadow:none}
 .lock .pad{max-width:300px;margin:0 auto}
-.lock-msg{min-height:20px;margin-top:16px;font-size:13.5px;color:var(--fg-dim)}
-.lock-msg.bad{color:var(--fg);font-weight:550}
-.lock-foot{margin-top:18px;font-size:11.5px;color:var(--fg-faint);line-height:1.5}
+.lock-msg{min-height:22px;margin-top:18px;font-size:14.5px;color:var(--fg-dim)}
+.lock-msg.bad{color:var(--fg);font-weight:580}
+.lock-foot{margin-top:18px;font-size:12.5px;color:var(--fg-faint);line-height:1.5}
 
 /* ---------- Zahlenblock ---------- */
-.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.34);display:flex;
-  align-items:flex-end;justify-content:center;backdrop-filter:blur(2px)}
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.4);display:flex;
+  align-items:flex-end;justify-content:center;backdrop-filter:blur(3px)}
 .sheet{width:100%;max-width:520px;background:var(--bg);border-top:1px solid var(--line);
-  border-radius:18px 18px 0 0;padding:20px 18px calc(18px + var(--safe-b));
-  max-height:92vh;overflow-y:auto}
-.sheet h3{margin-bottom:3px;font-size:17px}
-.pad-display{margin:16px 0;height:70px;border-radius:12px;background:var(--bg-2);
-  border:1px solid var(--fg);display:flex;align-items:center;justify-content:center;gap:9px;
-  font-size:32px;font-weight:600;letter-spacing:-.035em}
-.pad-display .unit{font-size:13px;font-weight:450;color:var(--fg-dim);letter-spacing:-.005em}
-.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.pad button{height:58px;border-radius:10px;background:transparent;border:1px solid var(--line-2);
-  font-size:22px;font-weight:450;letter-spacing:-.02em}
+  border-radius:var(--r-lg) var(--r-lg) 0 0;padding:14px 18px calc(18px + var(--safe-b));
+  max-height:92vh;overflow-y:auto;box-shadow:var(--shadow-lift)}
+/* Greifleiste oben: macht auf den ersten Blick klar, dass sich das Blatt
+   nach unten wegwischen laesst. */
+.sheet::before{content:"";display:block;width:38px;height:4px;border-radius:2px;
+  background:var(--line-2);margin:0 auto 16px}
+.sheet h3{margin-bottom:4px;font-size:20px}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.pad button{height:62px;border-radius:var(--r-sm);background:transparent;border:1px solid var(--line-2);
+  font-size:24px;font-weight:500;letter-spacing:-.02em;transition:background .12s ease}
 .pad button:active{background:var(--card-2)}
-.pad button.alt{font-size:18px;color:var(--fg-dim)}
-.pad-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px}
-.pad-quick button{height:42px;border-radius:9px;background:var(--card-2);border:1px solid transparent;
-  font-size:14.5px;font-weight:500;color:var(--fg-dim)}
-.pad-quick button:active{border-color:var(--line-2)}
-.pad-quick button.qlast{font-size:12px;white-space:nowrap;letter-spacing:-.01em}
+.pad button.alt{font-size:19px;color:var(--fg-dim)}
 .pad button[disabled]{opacity:.3;pointer-events:none}
+.pad-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px}
+.pad-quick button{height:46px;border-radius:13px;background:var(--card-2);border:1px solid transparent;
+  font-size:15px;font-weight:550;color:var(--fg-dim)}
+.pad-quick button:active{border-color:var(--line-2)}
+.pad-quick button.qlast{font-size:12.5px;white-space:nowrap;letter-spacing:-.01em}
 
 /* ---------- Listen ---------- */
-.item{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--card);
-  border:1px solid var(--line);border-radius:var(--r);margin-bottom:8px}
+.item{display:flex;align-items:center;gap:13px;padding:15px 16px;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r);margin-bottom:10px;box-shadow:var(--shadow)}
 .item .i-main{flex:1;min-width:0}
-.item .i-name{font-weight:530;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.014em}
-.item .i-sub{font-size:12.5px;color:var(--fg-faint);margin-top:2px}
-.item .i-val{font-weight:600;font-size:16px;flex:none;letter-spacing:-.025em}
-.badge{display:inline-block;padding:2.5px 8px;border-radius:6px;font-size:11px;font-weight:500;
+.item .i-name{font-weight:580;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  letter-spacing:-.016em;font-size:16.5px}
+.item .i-sub{font-size:13.5px;color:var(--fg-dim);margin-top:4px}
+.item .i-val{font-weight:640;font-size:17px;flex:none;letter-spacing:-.025em}
+.badge{display:inline-block;padding:3px 10px;border-radius:9px;font-size:12.5px;font-weight:550;
   background:var(--card-2);color:var(--fg-dim);letter-spacing:-.004em}
-.badge.ok,.badge.warn,.badge.crit,.badge.info{background:var(--card-2);color:var(--fg-dim)}
 .badge.crit{background:var(--accent);color:var(--accent-ink)}
 
 /* ---------- Statistik ---------- */
-.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
-.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:13px 10px;text-align:center}
-.kpi b{display:block;font-size:21px;font-weight:600;letter-spacing:-.035em}
-.kpi span{font-size:10px;color:var(--fg-faint);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
-.rank{display:flex;align-items:center;gap:11px;margin-bottom:13px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+  padding:15px 10px;text-align:center;box-shadow:var(--shadow)}
+.kpi b{display:block;font-size:23px;font-weight:640;letter-spacing:-.035em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi b.mittel{font-size:19px}
+.kpi b.lang{font-size:16px;letter-spacing:-.02em}
+.kpi span{font-size:12px;color:var(--fg-faint);font-weight:550;letter-spacing:-.004em;
+  display:block;margin-top:3px;line-height:1.3}
+.rank{display:flex;align-items:center;gap:12px;margin-bottom:15px}
 .rank:last-child{margin-bottom:0}
-.rank .r-no{width:16px;text-align:right;color:var(--fg-faint);font-weight:500;font-size:12.5px;flex:none}
+.rank .r-no{width:18px;text-align:right;color:var(--fg-faint);font-weight:550;font-size:13.5px;flex:none}
 .rank .r-body{flex:1;min-width:0}
 .rank .r-top{display:flex;gap:8px;align-items:baseline}
 .rank .r-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  font-weight:500;font-size:14.5px;letter-spacing:-.014em}
-.rank .r-val{font-weight:600;font-size:14.5px;flex:none;letter-spacing:-.025em}
-.bar{height:5px;border-radius:3px;background:var(--card-2);margin-top:7px;overflow:hidden}
+  font-weight:550;font-size:15.5px;letter-spacing:-.014em}
+.rank .r-val{font-weight:640;font-size:15.5px;flex:none;letter-spacing:-.025em}
+.bar{height:6px;border-radius:3px;background:var(--card-2);margin-top:8px;overflow:hidden}
 .bar > i{display:block;height:100%;border-radius:3px;background:var(--accent)}
 svg.chart{width:100%;height:190px;display:block;overflow:visible}
-.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--fg-faint);margin-top:10px;
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--fg-faint);margin-top:12px;
   align-items:center}
-.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;
+  vertical-align:middle}
 
 /* ---------- Sonstiges ---------- */
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + var(--safe-b));z-index:200;
-  background:var(--fg);color:var(--bg);padding:11px 18px;border-radius:9px;font-weight:500;font-size:14px;
-  box-shadow:0 8px 26px rgba(0,0,0,.22);max-width:90vw;text-align:center;letter-spacing:-.012em}
-.banner{display:flex;gap:11px;align-items:flex-start;padding:13px 14px;border-radius:10px;
-  border:1px solid var(--line);background:var(--bg-2);font-size:13px;margin-bottom:12px;
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(146px + var(--safe-b));
+  z-index:200;background:var(--fg);color:var(--bg);padding:13px 20px;border-radius:14px;
+  font-weight:560;font-size:15px;box-shadow:var(--shadow-lift);max-width:90vw;text-align:center;
+  letter-spacing:-.012em}
+.banner{display:flex;gap:11px;align-items:flex-start;padding:15px 16px;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--bg-2);font-size:14.5px;margin-bottom:12px;
   color:var(--fg-dim);line-height:1.5}
-.banner b{color:var(--fg);font-weight:560}
-.banner.info{border-color:var(--line);background:var(--bg-2)}
-pre.code{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:13px;
-  overflow-x:auto;font-size:11.5px;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+.banner b{color:var(--fg);font-weight:600}
+pre.code{background:var(--bg-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:14px;
+  overflow-x:auto;font-size:12.5px;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
   color:var(--fg-dim);white-space:pre;margin:0}
-#qrbox{display:flex;justify-content:center;padding:20px;background:#ffffff;border-radius:10px;
+#qrbox{display:flex;justify-content:center;padding:22px;background:#ffffff;border-radius:var(--r-sm);
   border:1px solid var(--line)}
 #qrbox svg{width:100%;max-width:240px;height:auto;display:block}
-hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
-.sw{display:flex;align-items:center;gap:12px;min-height:48px}
-.sw input{width:22px;height:22px;min-height:auto;accent-color:var(--fg);flex:none}
+hr.sep{border:none;border-top:1px solid var(--line);margin:18px 0}
+.sw{display:flex;align-items:center;gap:14px;min-height:52px}
+.sw input{width:24px;height:24px;min-height:auto;accent-color:var(--fg);flex:none}
+
+/* Aufklappbarer Bereich fuer alles Technische – verschwindet aus dem Weg,
+   solange es niemand braucht. */
+details.fold{border:1px solid var(--line);border-radius:var(--r);background:var(--card);
+  margin-bottom:12px;overflow:hidden;box-shadow:var(--shadow)}
+details.fold > summary{list-style:none;cursor:pointer;padding:17px 18px;font-weight:580;
+  display:flex;align-items:center;gap:10px;font-size:16px}
+details.fold > summary::-webkit-details-marker{display:none}
+details.fold > summary::after{content:"›";margin-left:auto;color:var(--fg-faint);font-size:20px;
+  transform:rotate(90deg);transition:transform .18s ease}
+details.fold[open] > summary::after{transform:rotate(270deg)}
+details.fold .fold-in{padding:0 18px 18px}
+
+/* ---------- Groessere Bildschirme ----------
+   Nur mehr Luft, keine andere Anordnung: die App bleibt die vom Telefon. */
+@media (min-width:700px){
+  .wrap{padding:0 24px}
+  section.view{padding-top:24px}
+}
+/* Sehr schmale Telefone (iPhone SE, 320px) */
+@media (max-width:360px){
+  body{font-size:16px}
+  .wrap{padding:0 14px}
+  .btn{padding:0 14px;font-size:15px}
+  .btn-grid{gap:8px}
+  .kpis{gap:7px}
+  .kpi b{font-size:20px}
+  .kpi span{font-size:11px}
+  .alert .a-days b{font-size:21px}
+  .srow{padding:13px 14px}
+  .srow .s-name,.buyrow .b-name{font-size:16px}
+  .buyrow .b-step .b-pm{width:44px}
+}
 </style>
 </head>
 <body>
@@ -479,7 +571,7 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
       <div class="section-title">Zählen</div>
       <div class="card" id="roundStart"></div>
 
-      <div class="section-title" id="stockTitle">Aktueller Bestand</div>
+      <div class="section-title" id="stockTitle">Was gerade da ist</div>
       <input type="text" id="countSearch" placeholder="Getränk suchen…" autocomplete="off">
       <div class="chips" id="countCats"></div>
       <div id="countList"></div>
@@ -489,57 +581,48 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
 
   <!-- ============ EINKAUF ============ -->
   <section class="view hide" id="v-shop">
-    <div class="section-title">Einkaufsliste</div>
+    <div class="section-title">Was gekauft werden muss</div>
     <div id="shopList"></div>
     <button class="btn block" id="shopAdd" style="margin-top:2px">+ Position hinzufügen</button>
 
-    <div class="section-title">Einkauf nachtragen</div>
+    <div class="section-title">Etwas eingekauft?</div>
     <div class="card tight">
       <div class="small muted" style="margin-bottom:10px">Etwas mitgebracht, das nicht auf der Liste
         stand? Hier direkt einbuchen – nur so bleibt der Verbrauch korrekt.</div>
       <button class="btn block" id="buyOpen">Einkauf eintragen</button>
     </div>
 
-    <div class="section-title">Letzte Nachkäufe</div>
+    <div class="section-title">Zuletzt eingekauft</div>
     <div id="buyList"></div>
   </section>
 
   <!-- ============ STATISTIK ============ -->
   <section class="view hide" id="v-stats">
-    <div class="section-title">Zeitraum</div>
     <div class="chips" id="statRange"></div>
-    <div class="section-title">Kategorie</div>
     <div class="chips" id="statCats"></div>
 
-    <div class="kpis" id="statKpis"></div>
-
-    <div class="row" style="margin-bottom:4px">
-      <div class="tiny faint">Mengen anzeigen als</div><div class="spacer"></div>
-      <div class="seg" id="statUnit">
-        <button data-packs="0">Flaschen</button><button data-packs="1">Kästen</button>
-      </div>
-    </div>
-
-    <div class="section-title">Verbrauch insgesamt</div>
+    <div class="section-title">Wie viel geht weg?</div>
     <div class="card" id="statTotal"></div>
 
-    <div class="section-title">Beliebteste Getränke (Verbrauch)</div>
+    <div class="section-title">Was am meisten getrunken wird</div>
     <div class="card" id="statRank"></div>
-
-    <div class="section-title">Verlauf pro Getränk</div>
-    <select id="statDrink"></select>
-    <div class="card" id="statChart" style="margin-top:10px"></div>
-
-    <div class="section-title">Abschnitte des gewählten Getränks</div>
-    <div id="statSegments"></div>
 
     <div class="section-title">Alle Zählungen</div>
     <div id="statSessions"></div>
+
+    <details class="fold" id="statFold" style="margin-top:12px">
+      <summary>Ein einzelnes Getränk ansehen</summary>
+      <div class="fold-in">
+        <select id="statDrink"></select>
+        <div id="statChart" style="margin-top:14px"></div>
+        <div id="statSegments" style="margin-top:14px"></div>
+      </div>
+    </details>
   </section>
 
   <!-- ============ GETRÄNKE ============ -->
   <section class="view hide" id="v-drinks">
-    <div class="section-title">Getränke verwalten</div>
+    <div class="section-title">Getränke</div>
     <button class="btn primary block" id="drinkAdd" style="margin-bottom:12px">+ Neues Getränk</button>
     <input type="text" id="drinkSearch" placeholder="Suchen…" autocomplete="off">
     <div id="drinkList" style="margin-top:10px"></div>
@@ -547,55 +630,35 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
 
   <!-- ============ MEHR ============ -->
   <section class="view hide" id="v-more">
-    <div class="section-title">QR-Code für diese Seite</div>
-    <div class="card">
-      <div id="qrbox"></div>
-      <div class="small muted" style="margin-top:10px;word-break:break-all" id="qrUrl"></div>
-      <div class="btn-grid" style="margin-top:12px">
-        <button class="btn sm" id="qrCopy">Link kopieren</button>
-        <button class="btn sm" id="qrPrint">QR drucken</button>
-      </div>
-    </div>
-
-    <div class="section-title">Export</div>
-    <div class="btn-grid">
-      <button class="btn" id="expCsv">CSV</button>
-      <button class="btn" id="expJson">JSON</button>
-    </div>
-
-    <div class="section-title">Datenbank</div>
-    <div id="dbStatus"></div>
-    <div class="card">
-      <label class="fld"><span>Bar-ID (Datenraum)</span>
-        <input type="text" id="cfgBar" placeholder="staffelbar">
-      </label>
-      <label class="fld"><span>Firebase-Konfiguration (JSON)</span>
-        <textarea id="cfgFb" spellcheck="false" placeholder='{"apiKey":"…","projectId":"…","appId":"…"}'></textarea>
-      </label>
-      <div class="btn-grid">
-        <button class="btn primary" id="cfgSave">Speichern &amp; verbinden</button>
-        <button class="btn ghost" id="cfgClear">Zurücksetzen</button>
-      </div>
-      <hr class="sep">
-      <div class="small muted" style="margin-bottom:8px">Firestore-Regeln (ohne Login, nur dieser Datenraum):</div>
-      <pre class="code" id="rulesBox"></pre>
-    </div>
 
     <div class="section-title">Einstellungen</div>
     <div class="card">
-      <label class="fld"><span>Achtung, wenn nur noch … Kästen da sind</span>
+      <label class="fld" style="margin-bottom:10px"><span>Darstellung</span></label>
+      <div class="seg" id="cfgTheme" style="display:flex;width:100%">
+        <button data-theme="auto" style="flex:1">Automatisch</button>
+        <button data-theme="light" style="flex:1">Hell</button>
+        <button data-theme="dark" style="flex:1">Dunkel</button>
+      </div>
+      <div class="small faint" style="margin-top:8px">„Automatisch“ folgt der Einstellung des
+        Telefons – nachts dunkel, tagsüber hell.</div>
+      <hr class="sep">
+      <label class="sw"><input type="checkbox" id="cfgPacks">
+        <span>Mengen in Kästen anzeigen<br><span class="small faint">z.&nbsp;B. „1 Kasten + 2 Flaschen“
+        statt „22 Flaschen“.</span></span>
+      </label>
+    </div>
+
+    <div class="section-title">Wann soll gewarnt werden?</div>
+    <div class="card">
+      <label class="fld"><span>Wenn nur noch so viele Kästen da sind</span>
         <input type="number" id="cfgMinPacks" min="0" max="20" step="1" inputmode="numeric">
       </label>
       <div class="small faint" id="minPacksHint"></div>
       <hr class="sep">
-      <label class="fld"><span>Achtung, wenn der Vorrat nur noch … Tage reicht</span>
+      <label class="fld"><span>Oder wenn der Vorrat nur noch so viele Tage reicht</span>
         <input type="number" id="cfgWarnDays" min="1" max="90" step="1" inputmode="numeric">
       </label>
-      <div class="small faint">Greift zusätzlich, sobald genug Zählungen für eine Hochrechnung da sind – dann meldet sich ein Getränk schon, bevor die Kästen-Schwelle erreicht ist.</div>
-      <hr class="sep">
-      <label class="sw"><input type="checkbox" id="cfgPacks">
-        <span>Mengen in Kästen anzeigen<br><span class="small faint">z.&nbsp;B. „1 Kasten + 2 Flaschen“ statt „22 Flaschen“. Gerechnet wird immer in Einzelflaschen.</span></span>
-      </label>
+      <div class="small faint">Gilt erst, wenn genug gezählt wurde, um den Verbrauch zu schätzen.</div>
     </div>
 
     <div class="section-title">Zugang</div>
@@ -607,13 +670,52 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
       <button class="btn ghost block hide" id="pinClear" style="margin-top:10px">Code entfernen</button>
     </div>
 
-    <div class="section-title">Daten</div>
+    <div class="section-title">QR-Code für den Tresen</div>
     <div class="card">
-      <label class="fld"><span>JSON-Backup einspielen</span>
-        <input type="file" id="impFile" accept="application/json,.json" style="padding:10px">
-      </label>
-      <div class="small faint">Fügt Getränke, Zählungen und Nachkäufe aus einem Export hinzu. Vorhandene Einträge bleiben erhalten.</div>
+      <div id="qrbox"></div>
+      <div class="btn-grid" style="margin-top:14px">
+        <button class="btn" id="qrPrint">Drucken</button>
+        <button class="btn ghost" id="qrCopy">Link kopieren</button>
+      </div>
+      <div class="tiny faint" style="margin-top:10px;word-break:break-all" id="qrUrl"></div>
     </div>
+
+    <div class="section-title">Sichern &amp; übertragen</div>
+    <div class="card">
+      <div class="small muted" style="margin-bottom:14px">Alles, was erfasst wurde, als Datei
+        herunterladen – zum Aufheben oder für Excel.</div>
+      <div class="btn-grid">
+        <button class="btn" id="expJson">Sicherung (JSON)</button>
+        <button class="btn ghost" id="expCsv">Tabelle (CSV)</button>
+      </div>
+      <hr class="sep">
+      <label class="fld" style="margin-bottom:8px"><span>Sicherung wieder einspielen</span>
+        <input type="file" id="impFile" accept="application/json,.json" style="padding:12px">
+      </label>
+      <div class="small faint">Fügt hinzu, löscht nichts.</div>
+    </div>
+
+    <!-- Alles, was im Alltag niemand braucht, liegt eingeklappt darunter. -->
+    <details class="fold" id="techFold">
+      <summary>Technisches</summary>
+      <div class="fold-in">
+        <div id="dbStatus"></div>
+        <label class="fld"><span>Datenraum (Bar-ID)</span>
+          <input type="text" id="cfgBar" placeholder="staffelbar">
+        </label>
+        <label class="fld"><span>Firebase-Konfiguration (JSON)</span>
+          <textarea id="cfgFb" spellcheck="false" placeholder='{"apiKey":"…","projectId":"…","appId":"…"}'></textarea>
+        </label>
+        <div class="btn-grid">
+          <button class="btn primary" id="cfgSave">Speichern &amp; verbinden</button>
+          <button class="btn ghost" id="cfgClear">Zurücksetzen</button>
+        </div>
+        <hr class="sep">
+        <div class="small muted" style="margin-bottom:8px">Firestore-Regeln für diesen Datenraum:</div>
+        <pre class="code" id="rulesBox"></pre>
+      </div>
+    </details>
+
     <div class="small faint" style="text-align:center;padding:18px 0 6px;user-select:none" id="verLine"></div>
 
     <!-- Kommt erst zum Vorschein, wenn man die Zeile darüber fünfmal antippt.
@@ -622,9 +724,8 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
     <div id="dangerZone" class="hide">
       <div class="section-title">Gefahrenzone</div>
       <div class="card">
-        <div class="small muted" style="margin-bottom:12px">Löscht die erfassten Daten
-          dieser Bar für <b>alle Geräte</b>. Getränke, Zählungen, Nachkäufe und die
-          Einkaufsliste – je nach Auswahl. Vorher exportieren!</div>
+        <div class="small muted" style="margin-bottom:14px">Löscht die erfassten Daten
+          dieser Bar für <b>alle Geräte</b>. Vorher sichern!</div>
         <button class="btn danger block" id="resetOpen">Daten zurücksetzen</button>
       </div>
     </div>
@@ -679,7 +780,7 @@ const DEFAULT_BAR_ID = "staffelbar";
    Getränk selbst, und eine 0 dort heißt "gibt es nur einzeln". */
 const DEFAULT_PACK_SIZE = 20;
 
-const APP_VERSION = "1.1";
+const APP_VERSION = "1.2";
 const SDK = "https://www.gstatic.com/firebasejs/10.13.2/";
 
 /* ---------------------------------------------------------------------
@@ -742,6 +843,7 @@ function toast(msg){
    3) Einstellungen (lokal pro Gerät)
    --------------------------------------------------------------------- */
 const LS_CFG = "staffelbar.cfg.v1";
+const LS_THEME = "staffelbar.theme";   // "auto" | "light" | "dark", pro Gerät
 const settings = loadSettings();
 
 function loadSettings(){
@@ -940,7 +1042,29 @@ async function saveBarSettings(){
       pinHash: settings.pinHash || "", pinLen: settings.pinLen || 0,
       at: new Date().toISOString()
     });
-  } catch(err){ console.error(err); toast("Schwelle konnte nicht geteilt werden"); }
+  } catch(err){ console.error(err); toast("Einstellung konnte nicht geteilt werden"); }
+}
+
+/* Helligkeit: Wahl des Geräts, nicht der Bar – deshalb nur lokal. */
+function currentTheme(){
+  try { const t = localStorage.getItem(LS_THEME); return (t === "light" || t === "dark") ? t : "auto"; }
+  catch(_){ return "auto"; }
+}
+function applyTheme(mode){
+  const m = (mode === "light" || mode === "dark") ? mode : "auto";
+  try { m === "auto" ? localStorage.removeItem(LS_THEME) : localStorage.setItem(LS_THEME, m); } catch(_){}
+  if (m === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = m;
+  /* Die Leiste oben am Telefon mitfärben – die Medienabfrage im Kopf greift
+     nicht mehr, sobald die Helligkeit erzwungen ist. */
+  const dunkel = m === "dark" ||
+    (m === "auto" && window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches);
+  $$('meta[name="theme-color"]').forEach(el => el.remove());
+  const meta = document.createElement("meta");
+  meta.name = "theme-color";
+  meta.content = dunkel ? "#000000" : "#ffffff";
+  document.head.appendChild(meta);
+  if (view === "stats") renderStats();     // Diagramme neu mit den neuen Farben
 }
 
 function activeFbConfig(){
@@ -1234,16 +1358,16 @@ function analyze(drinkId){
   /* --- Darf hochgerechnet werden? --- */
   if (usable.length < FC_MIN_SEGMENTS){
     res.reason = counts.length < 2
-      ? "Erst eine Zählung – für eine Vorhersage sind mindestens 3 nötig"
-      : "Zu wenige Zählungen für eine belastbare Vorhersage";
+      ? "Erst einmal gezählt – für eine Schätzung braucht es drei Zählungen"
+      : "Noch zu wenige Zählungen für eine Schätzung";
     return res;
   }
   if (res.totalDays < FC_MIN_SPAN_DAYS){
-    res.reason = "Zeitraum der Zählungen zu kurz";
+    res.reason = "Die Zählungen liegen zu dicht beieinander";
     return res;
   }
   if (res.totalConsumed <= 0){
-    res.reason = "Bisher kein Verbrauch gemessen";
+    res.reason = "Bisher wurde nichts verbraucht";
     return res;
   }
 
@@ -1253,7 +1377,7 @@ function analyze(drinkId){
   const cv = perDay > 0 ? Math.sqrt(varW) / perDay : Infinity;
   res.cv = cv;
   if (cv > FC_MAX_CV){
-    res.reason = "Verbrauch schwankt zu stark für eine sinnvolle Vorhersage";
+    res.reason = "Der Verbrauch schwankt zu stark für eine Schätzung";
     return res;
   }
 
@@ -1312,9 +1436,9 @@ function alerts(){
     sub.push(belowMin
       ? "nur noch " + qtyText(a.stock, a.drink, true) + " im Lager"
       : "Bestand " + qtyText(a.stock, a.drink, true));
-    if (belowMin) sub.push("Schwelle " + qtyText(floor.qty, a.drink, true));
-    if (a.ok) sub.push("Ø " + fmt(a.perDay, 2) + "/Tag");
-    else if (a.lastCount) sub.push("keine Vorhersage");
+    if (belowMin) sub.push("Warnung ab " + qtyText(floor.qty, a.drink, true));
+    if (a.ok) sub.push(fmt(a.perDay, 1) + " pro Tag");
+    else if (a.lastCount) sub.push("noch keine Schätzung");
 
     /* Große Zahl rechts: Reichweite, wo es eine gibt – sonst die Menge, und
        die in Kästen, sobald mindestens einer voll ist. */
@@ -1618,7 +1742,9 @@ function padHint(cls, html){
   return '<div class="padhint' + (cls ? " " + cls : "") + '"><span>' + html + '</span></div>';
 }
 function padHintHtml(d, st){
-  if (!st.touched) return PAD_HINT_EMPTY;
+  /* Solange nichts eingetippt ist, steht hier der Merksatz zum Kasten –
+     so bleibt der reservierte Platz gefüllt statt als Loch dazustehen. */
+  if (!st.touched) return packSize(d) ? padHint("", esc(packHint(d))) : PAD_HINT_EMPTY;
   const v = padValue(d, st);
 
   if (st.addTo != null)
@@ -1638,7 +1764,7 @@ function padHintHtml(d, st){
   let t = 'das wären <b>' + esc(qtyUnit(diff, unitOf(d))) + '</b> verbraucht';
   if (days >= 0.5){
     const perDay = diff / days;
-    t += " in " + fmt(days, 1) + " Tagen · Ø " + fmt(perDay, 2) + "/Tag";
+    t += " in " + fmt(days, 1) + " Tagen, " + fmt(perDay, 1) + " pro Tag";
     /* Auffällig weit über dem bisherigen Schnitt? Dann lieber nachfragen. */
     if (a.ok && a.perDay > 0 && perDay / a.perDay >= 3)
       return padHint("warn", '<b>' + esc(qtyUnit(diff, unitOf(d))) + '</b> verbraucht – rund ' +
@@ -1667,13 +1793,11 @@ function padHtml(d, st){
         ? fmt(sp.packs) + " " + packWord(sp.packs, d) + (sp.rest ? " + " + qtyUnit(sp.rest, unitOf(d)) : "")
         : qtyUnit(sp.rest, unitOf(d)))
     : "";
-  const totalLine = ps
-    ? '<div class="padtotal">' + (st.touched
-        ? 'macht <b>' + esc(brk) + '</b>' +
-          (sp.packs ? ' <span class="faint">· ' + esc(qtyUnit(total, unitOf(d))) + '</span>' : '')
-        : '<span class="faint">' + esc(packHint(d)) + '</span>') +
-      '</div>'
-    : "";
+  /* Immer dieselbe Hoehe, damit der Zahlenblock nicht wandert. */
+  const totalLine = '<div class="padtotal">' + (ps && st.touched
+    ? 'macht <b>' + esc(brk) + '</b>' +
+      (sp.packs ? ' <span class="faint">· ' + esc(qtyUnit(total, unitOf(d))) + '</span>' : '')
+    : '') + '</div>';
 
   /* vier Schnelltasten: mit vorheriger Zählung eine davon als "wie zuletzt" */
   const nums = st.field === "packs" ? [0, 1, 2, 5] : [0, 1, 6, 12];
@@ -2072,7 +2196,7 @@ function renderCount(){
   $("#countKpis").innerHTML = store.drinks.length
     ? kpi(String(store.drinks.length), "Getränke") +
       kpi(String(al.length), al.length === 1 ? "wird knapp" : "werden knapp") +
-      kpi(ls ? relDays(ls.at).replace("vor ", "").replace(" Tagen", " T.").replace(" Std.", " h") : "–", "gezählt")
+      kpi(ls ? shortAge(ls.at) : "–", "zuletzt gezählt")
     : "";
 
   /* --- Erinnerung --- */
@@ -2154,7 +2278,7 @@ function renderCount(){
       else if (a.lastCount) meta = [
         "gezählt " + relDays(a.lastCount.at),
         a.boughtAfter ? "+" + qtyText(a.boughtAfter, d) + " gekauft" : null,
-        a.ok ? "Ø " + fmt(a.perDay, 2) + "/Tag" : null,
+        a.ok ? fmt(a.perDay, 1) + " pro Tag" : null,
         d.category || null            /* zuletzt: schneidet auf schmalen Geräten zuerst ab */
       ].filter(Boolean).join(" · ");
       else meta = "noch nie gezählt" + (d.category ? " · " + d.category : "");
@@ -2294,8 +2418,8 @@ function showSummary(rows, at, session){
     '</div>' +
     '<div class="kpis" style="margin-top:16px">' +
       kpi(fmt(totalUsed), "verbraucht") +
-      kpi(span != null ? fmt(span, 1) : "–", "Tage seither") +
-      kpi(String(used.length), "mit Verbrauch") +
+      kpi(span != null ? fmt(span, 1) : "–", "Tage davor") +
+      kpi(String(used.length), "davon verbraucht") +
     '</div>' +
     (anomalies.length
       ? '<div class="banner"><div>Bei ' + anomalies.length + ' Getränk(en) ist der Bestand <b>gestiegen</b>, ' +
@@ -2440,7 +2564,7 @@ function renderShop(){
       '<div class="i-sub">' + esc(fmtDateTime(p.at)) + (p.note ? " · " + esc(p.note) : "") + '</div></div>' +
       '<div class="i-val">+' + esc(dr ? qtyText(num(p.qty), dr) : fmt(num(p.qty))) + '</div>' +
       '<button class="btn sm danger" data-del="' + esc(p.id) + '">&#10005;</button></div>';
-  }).join("") : '<div class="empty">Noch keine Nachkäufe erfasst.</div>';
+  }).join("") : '<div class="empty">Noch nichts eingekauft.</div>';
 }
 
 /* Menge einer Position setzen. Ein automatischer Vorschlag, an dem gedreht
@@ -2534,7 +2658,7 @@ async function shopAction(e){
     }
     qtySheet({
       title: "Gekauft: " + d.name,
-      sub: "Wird als Nachkauf gebucht – dadurch bleibt der Verbrauch korrekt.",
+      sub: "Wird als Einkauf gebucht – nur so stimmt der Verbrauch.",
       drink: d, value: it.qty || "", okLabel: "Einbuchen",
       addTo: analyze(d.id).stock == null ? 0 : num(analyze(d.id).stock),
       onOk: async (v) => {
@@ -2553,7 +2677,7 @@ async function shopAction(e){
 
 $("#buyList").addEventListener("click", e => {
   const b = e.target.closest("[data-del]"); if (!b) return;
-  askConfirm("Nachkauf löschen?", "Der Eintrag wird entfernt, die Verbrauchsberechnung ändert sich dadurch.",
+  askConfirm("Einkauf löschen?", "Der Eintrag wird entfernt. Die Verbrauchszahlen ändern sich dadurch.",
     "Löschen", async () => { await store.remove("purchases", b.dataset.del); toast("Gelöscht"); renderAll(); });
 });
 
@@ -2695,24 +2819,33 @@ function drinkForm(d){
   const cats = categories();
   sheet(
     '<h3>' + (isNew ? "Neues Getränk" : "Getränk bearbeiten") + '</h3>' +
-    '<div style="margin-top:14px">' +
+    /* Zwei Felder reichen für den Normalfall. Alles Weitere liegt
+       eingeklappt darunter – wer es braucht, findet es; wer nicht, wird
+       nicht damit behelligt. */
+    '<div style="margin-top:16px">' +
     '<label class="fld"><span>Name</span><input type="text" id="fName" value="' + esc(d ? d.name : "") + '" placeholder="z. B. Weizenbier 0,5"></label>' +
-    '<label class="fld"><span>Kategorie</span><input type="text" id="fCat" list="catList" value="' + esc(d ? (d.category||"") : "") + '" placeholder="z. B. Bier"></label>' +
-    '<datalist id="catList">' + cats.map(c => '<option value="' + esc(c) + '">').join("") + '</datalist>' +
-    '<label class="fld"><span>Einzeln gezählt wird in</span>' +
-      '<input type="text" id="fUnit" list="unitList" value="' + esc(d ? unitOf(d) : "Flaschen") + '" placeholder="Flaschen"></label>' +
-    '<datalist id="unitList"><option value="Flaschen"><option value="Dosen"><option value="Gläser"><option value="Liter"><option value="Stk"></datalist>' +
-    '<div class="row" style="gap:10px;align-items:flex-start">' +
-      '<label class="fld" style="flex:1.25;min-width:0"><span>1 Kasten sind … Flaschen</span>' +
-        '<input type="number" id="fPackSize" inputmode="numeric" step="1" min="0" value="' +
-        esc(d ? packSize(d) : DEFAULT_PACK_SIZE) + '" placeholder="' + DEFAULT_PACK_SIZE + '"></label>' +
-      '<label class="fld" style="flex:1;min-width:0"><span>heißt hier</span>' +
-        '<input type="text" id="fPackName" list="packList" value="' + esc(d ? packOne(d) : "Kasten") + '" placeholder="Kasten"></label>' +
+    '<label class="fld" style="margin-bottom:8px"><span>1 Kasten sind … Flaschen</span>' +
+      '<input type="number" id="fPackSize" inputmode="numeric" step="1" min="0" value="' +
+      esc(d ? packSize(d) : DEFAULT_PACK_SIZE) + '" placeholder="' + DEFAULT_PACK_SIZE + '"></label>' +
+    '<div class="small faint" id="fPackHint" style="margin-bottom:16px"></div>' +
     '</div>' +
-    '<datalist id="packList"><option value="Kasten"><option value="Kiste"><option value="Träger"><option value="Karton"><option value="Sixpack"></datalist>' +
-    '<div class="small faint" id="fPackHint" style="margin:-8px 0 16px"></div>' +
-    '<label class="fld"><span>Mindestbestand, einzeln gezählt (0 = aus)</span><input type="number" id="fMin" inputmode="decimal" step="0.5" min="0" value="' + esc(d ? num(d.minStock, 0) : 0) + '"></label>' +
-    '</div>' +
+    '<details class="fold" style="margin-bottom:14px"><summary>Mehr Einstellungen</summary>' +
+    '<div class="fold-in">' +
+      '<label class="fld"><span>Kategorie</span><input type="text" id="fCat" list="catList" value="' + esc(d ? (d.category||"") : "") + '" placeholder="z. B. Bier"></label>' +
+      '<datalist id="catList">' + cats.map(c => '<option value="' + esc(c) + '">').join("") + '</datalist>' +
+      '<div class="row" style="gap:10px;align-items:flex-start">' +
+        '<label class="fld" style="flex:1;min-width:0"><span>Einzeln heißt</span>' +
+          '<input type="text" id="fUnit" list="unitList" value="' + esc(d ? unitOf(d) : "Flaschen") + '" placeholder="Flaschen"></label>' +
+        '<label class="fld" style="flex:1;min-width:0"><span>Kasten heißt</span>' +
+          '<input type="text" id="fPackName" list="packList" value="' + esc(d ? packOne(d) : "Kasten") + '" placeholder="Kasten"></label>' +
+      '</div>' +
+      '<datalist id="unitList"><option value="Flaschen"><option value="Dosen"><option value="Gläser"><option value="Liter"><option value="Stk"></datalist>' +
+      '<datalist id="packList"><option value="Kasten"><option value="Kiste"><option value="Träger"><option value="Karton"><option value="Sixpack"></datalist>' +
+      '<label class="fld" style="margin-bottom:0"><span>Eigener Mindestbestand (0 = aus)</span>' +
+        '<input type="number" id="fMin" inputmode="decimal" step="0.5" min="0" value="' + esc(d ? num(d.minStock, 0) : 0) + '"></label>' +
+      '<div class="small faint" style="margin-top:8px">Ohne eigenen Wert gilt die Warnschwelle aus ' +
+        '<b>Mehr</b>. Angabe in einzelnen Flaschen.</div>' +
+    '</div></details>' +
     '<div class="btn-grid"><button class="btn ghost" id="fCancel">Abbrechen</button>' +
     '<button class="btn primary" id="fSave">Speichern</button></div>' +
     (isNew ? "" : '<button class="btn danger block" id="fDel" style="margin-top:10px">Getränk löschen</button>'),
@@ -2727,9 +2860,9 @@ function drinkForm(d){
         const un = $("#fUnit", el).value.trim() || "Stk";
         const pn = $("#fPackName", el).value.trim() || "Kasten";
         hint.textContent = ps > 1
-          ? "1 " + pn + " = " + qtyUnit(ps, un) + ". Gezählte " + un + " werden automatisch umgerechnet: " +
+          ? "Gezählte " + un + " werden dann von selbst umgerechnet: " +
             qtyUnit(ps + 2, un) + " sind 1 " + pn + " + 2."
-          : "0 eintragen heißt: dieses Getränk gibt es nur einzeln, ohne " + pn + ".";
+          : "Eine 0 heißt: dieses Getränk gibt es nur einzeln, ohne " + pn + ".";
       };
       ["fPackSize", "fPackName", "fUnit"].forEach(id =>
         $("#" + id, el).addEventListener("input", syncHint));
@@ -2791,17 +2924,7 @@ function renderStats(){
   const roundsInRange = sessionList().filter(x =>
     !statState.range || new Date(x.at).getTime() >= Date.now() - statState.range*DAY).length;
 
-  $("#statKpis").innerHTML =
-    kpi(fmt(agg.total), "Flaschen weg") +
-    kpi(agg.perDay != null ? fmt(agg.perDay, 1) : "–", "Ø pro Tag") +
-    kpi(String(roundsInRange), roundsInRange === 1 ? "Zählung" : "Zählungen");
-
-  /* Gerechnet wird immer in Einzelflaschen; hier lässt sich nur die
-     Anzeige auf Kästen umstellen. */
-  $$("#statUnit button").forEach(b =>
-    b.classList.toggle("on", (b.dataset.packs === "1") === !!settings.showPacks));
-
-  renderTotals(agg);
+  renderTotals(agg, roundsInRange);
   renderSessions();
 
   /* --- Ranking: eine Serie, Werte direkt beschriftet --- */
@@ -2835,7 +2958,25 @@ function renderStats(){
   drawChart();
   renderSegments();
 }
-function kpi(v, l){ return '<div class="kpi"><b>' + esc(v) + '</b><span>' + esc(l) + '</span></div>'; }
+/* Lange Werte wie "gestern" passen bei 320px nicht in 23px Schrift –
+   deshalb schrumpft die Kennzahl, statt aus der Karte zu laufen. */
+function kpi(v, l){
+  const t = String(v);
+  const cls = t.length > 6 ? " lang" : (t.length > 4 ? " mittel" : "");
+  return '<div class="kpi"><b class="' + cls.trim() + '">' + esc(t) + '</b><span>' + esc(l) + '</span></div>';
+}
+
+/* Kurzes Alter für enge Kennzahlen: "heute", "gestern", "vor 3 T." */
+function shortAge(iso){
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 3600000) return "jetzt";
+  const heute = new Date(); heute.setHours(0,0,0,0);
+  const tag = new Date(iso); tag.setHours(0,0,0,0);
+  const diff = Math.round((heute - tag) / DAY);
+  if (diff <= 0) return "heute";
+  if (diff === 1) return "gestern";
+  return diff + " T.";
+}
 
 /* Gesamtmenge über mehrere Sorten in Kästen: nach der Hausregel gerechnet,
    weil sich Kästen unterschiedlicher Größe nicht sinnvoll addieren lassen. */
@@ -2848,7 +2989,7 @@ function totalPackText(total){
 }
 
 /* --- Wie viel geht insgesamt weg? --- */
-function renderTotals(agg){
+function renderTotals(agg, runden){
   const host = $("#statTotal");
   agg = agg || aggregateConsumption(statState.range, statState.cat);
   const rows = agg.rows;
@@ -2868,10 +3009,10 @@ function renderTotals(agg){
     '<div class="small muted">' + esc(fein) +
       (perDay != null ? ' · Ø ' + fmt(perDay, 1) + ' pro Tag · Ø ' + fmt(perDay * 7, 1) + ' pro Woche' : '') +
     '</div>' +
-    '<div class="tiny faint" style="margin-top:3px">aus ' + rows.length +
-      (rows.length === 1 ? ' Abschnitt' : ' Abschnitten') +
-      ' über ' + fmt(days, 1) + (days === 1 ? ' Tag' : ' Tage') +
-      (perDay == null ? ' · zu kurz für einen belastbaren Tagesschnitt' : '') + '</div>';
+    '<div class="tiny faint" style="margin-top:4px">gemessen über ' + fmt(days, 1) +
+      (days === 1 ? ' Tag' : ' Tage') +
+      (runden != null ? ' und ' + runden + (runden === 1 ? ' Zählung' : ' Zählungen') : '') +
+      (perDay == null ? ' · zu kurz für einen verlässlichen Tageswert' : '') + '</div>';
 
   /* Balken: ein Abschnitt zwischen zwei Zählungen je Balken */
   const W = Math.max(260, host.clientWidth - 30), H = 168;
@@ -2907,7 +3048,7 @@ function renderTotals(agg){
   host.innerHTML = head +
     '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
       '" style="height:' + H + 'px;margin-top:12px">' + grid + bars + xl + '</svg>' +
-    '<div class="legend"><span>ein Balken = Verbrauch zwischen zwei Zählungen</span></div>';
+    '<div class="legend"><span>Ein Balken ist das, was zwischen zwei Zählungen weg war.</span></div>';
 }
 
 /* --- Protokoll: jede gespeicherte Zählung zum Nachschlagen --- */
@@ -2970,7 +3111,7 @@ function showSession(key){
     '<div class="kpis" style="margin-top:16px">' +
       kpi(fmt(used), "verbraucht") +
       kpi(spanne != null ? fmt(spanne, 1) : "–", "Tage davor") +
-      kpi(String(mit.length), "mit Verbrauch") +
+      kpi(String(mit.length), "davon verbraucht") +
     '</div>' +
     '<div class="card">' + det.map(line).join("") + '</div>' +
     '<button class="btn primary block" data-act="close" style="margin-top:6px">Schließen</button>',
@@ -2980,10 +3121,10 @@ function showSession(key){
 }
 
 $("#statDrink").addEventListener("change", e => { statState.drinkId = e.target.value; drawChart(); renderSegments(); });
-$("#statUnit").addEventListener("click", e => {
-  const b = e.target.closest("button"); if (!b) return;
-  settings.showPacks = b.dataset.packs === "1";
-  saveSettings(); renderAll();
+/* Beim Aufklappen neu zeichnen: solange der Bereich zu ist, misst das
+   Diagramm eine Breite von 0 und käme zu schmal heraus. */
+$("#statFold").addEventListener("toggle", () => {
+  if ($("#statFold").open){ drawChart(); renderSegments(); }
 });
 
 /* runde Achsenobergrenze, damit die Beschriftung lesbare Zahlen zeigt */
@@ -3078,14 +3219,14 @@ function renderSegments(){
   let head = "";
   if (a.ok){
     head = '<div class="card tight"><div class="row wrap" style="gap:14px">' +
-      '<div><div class="tiny faint">Ø PRO TAG</div><div style="font-size:19px;font-weight:750">' + fmt(a.perDay, 2) + '</div></div>' +
-      '<div><div class="tiny faint">Ø PRO WOCHE</div><div style="font-size:19px;font-weight:750">' + fmt(a.perWeek, 1) + '</div></div>' +
-      '<div><div class="tiny faint">REICHWEITE</div><div style="font-size:19px;font-weight:750">' + fmt(a.daysLeft, 1) + ' Tage</div></div>' +
-      '<div><div class="tiny faint">BESTAND</div><div style="font-size:19px;font-weight:750">' + esc(qtyText(a.stock, d)) + '</div></div>' +
+      '<div><div class="tiny faint">pro Tag</div><div style="font-size:20px;font-weight:660">' + fmt(a.perDay, 1) + '</div></div>' +
+      '<div><div class="tiny faint">pro Woche</div><div style="font-size:20px;font-weight:660">' + fmt(a.perWeek, 1) + '</div></div>' +
+      '<div><div class="tiny faint">reicht noch</div><div style="font-size:20px;font-weight:660">' + fmt(a.daysLeft, 1) + ' Tage</div></div>' +
+      '<div><div class="tiny faint">Bestand</div><div style="font-size:20px;font-weight:660">' + esc(qtyText(a.stock, d)) + '</div></div>' +
       '</div><div class="small muted" style="margin-top:8px">Voraussichtlich leer am <b>' + esc(fmtDate(a.emptyAt)) + '</b> ' +
       '· berechnet aus ' + a.segments.filter(s => s.usable).length + ' Abschnitten über ' + fmt(a.totalDays, 1) + ' Tage</div></div>';
   } else {
-    head = '<div class="banner"><b>Keine Vorhersage.</b> ' + esc(a.reason) + '.</div>';
+    head = '<div class="banner"><div><b>Noch keine Schätzung.</b> ' + esc(a.reason) + '.</div></div>';
   }
 
   const segs = a.segments.slice().reverse();
@@ -3375,6 +3516,8 @@ function renderMore(){
   if (document.activeElement !== $("#cfgWarnDays")) $("#cfgWarnDays").value = settings.warnDays;
   if (document.activeElement !== $("#cfgMinPacks")) $("#cfgMinPacks").value = settings.minPacks;
   $("#cfgPacks").checked = !!settings.showPacks;
+  const th = currentTheme();
+  $$("#cfgTheme button").forEach(b => b.classList.toggle("on", b.dataset.theme === th));
 
   const hatCode = !!currentPinHash();
   $("#pinClear").classList.toggle("hide", !hatCode);
@@ -3472,12 +3615,12 @@ $("#expCsv").addEventListener("click", () => {
       r.at ? fmtDateTime(r.at) : "", r.note||""].map(q).join(sep));
   });
   /* Verbrauchsübersicht anhängen */
-  lines.push("", ["Getränk","Verbrauch gesamt","Ø pro Tag","Ø pro Woche","Bestand","Reichweite (Tage)"].map(q).join(sep));
+  lines.push("", ["Getränk","verbraucht gesamt","pro Tag","pro Woche","Bestand","reicht noch (Tage)"].map(q).join(sep));
   analysisAll().forEach(a => {
     if (!a.drink) return;
     lines.push([a.drink.name, fmt(a.totalConsumed), a.ok ? fmt(a.perDay,2) : "",
       a.ok ? fmt(a.perWeek,1) : "", a.stock != null ? fmt(a.stock) : "",
-      a.ok ? fmt(a.daysLeft,1) : "keine Vorhersage"].map(q).join(sep));
+      a.ok ? fmt(a.daysLeft,1) : "keine Schätzung"].map(q).join(sep));
   });
   download("staffelbar-" + stamp() + ".csv", "﻿" + lines.join("\r\n"), "text/csv");
   toast("CSV exportiert");
@@ -3716,6 +3859,12 @@ $("#pinChange").addEventListener("click", () => {
     });
 });
 
+$("#cfgTheme").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  applyTheme(b.dataset.theme);
+  renderAll();
+});
+
 $("#cfgPacks").addEventListener("change", e => {
   settings.showPacks = e.target.checked;
   saveSettings(); renderAll();
@@ -3747,6 +3896,7 @@ window.addEventListener("online",  () => { store.status = store.mode === "fireba
 window.addEventListener("offline", () => { if (store.mode === "firebase") store.status = "offline"; renderAll(); });
 
 store.onChange(renderAll);
+applyTheme(currentTheme());
 initLock();
 restoreRound();
 renderAll();

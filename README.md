@@ -233,10 +233,24 @@ liegt (Standard 7 Tage) oder der Mindestbestand unterschritten ist.
 
 ## Design
 
-Monochrom – schwarz, weiß, Grauabstufungen, keine Akzentfarbe. Hairline-Rahmen,
-Systemschrift, viel Weißraum. Hell und Dunkel folgen automatisch der
-Systemeinstellung des Telefons, nachts am Tresen wird die Oberfläche also von
-selbst schwarz.
+Monochrom – schwarz, weiß, Grauabstufungen, keine Akzentfarbe. Systemschrift,
+weiche Rundungen, viel Weißraum. **Hell, Dunkel oder Automatisch** lässt sich
+unter *Mehr → Einstellungen* wählen; „Automatisch“ folgt dem Telefon.
+
+Zwei Regeln geben den Rest vor:
+
+1. **Lesbar für alle.** Jede Textfarbe erreicht mindestens 4,5:1 Kontrast –
+   die Hilfstexte lagen vorher bei 2,8:1 und waren damit für ältere Augen
+   praktisch weg. Hilfstexte sind nicht kleiner als 13px, Tippflächen nicht
+   kleiner als 48px.
+2. **Zuerst das Telefon.** Alle Größen sind für eine Hand am Tresen gedacht;
+   größere Bildschirme bekommen nur mehr Rand, keine andere Anordnung.
+   Geprüft von 320px bis Tablet.
+
+Wenig Schritte: Ein neues Getränk braucht zwei Felder (Name, Kastengröße),
+alles Weitere liegt unter *Mehr Einstellungen*. Technisches – Firebase,
+Datenraum, Firestore-Regeln – liegt im Tab *Mehr* eingeklappt unter
+*Technisches* und stört im Alltag niemanden.
 
 Dringlichkeit kommt ohne Farbe aus: Ein Getränk in kritischem Zustand bekommt
 einen gefüllten Punkt und eine kräftige Kontur, eine Warnung einen hohlen Punkt

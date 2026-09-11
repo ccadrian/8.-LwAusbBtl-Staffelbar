@@ -55,7 +55,7 @@ html,body{margin:0;padding:0}
       iOS zwei Ziffern sonst als Doppeltipp und vergroessert die Seite.
    2. Jedes Eingabefeld mindestens 16px - darunter zoomt iOS Safari beim Fokus. */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
-button,input,select,textarea,label,a,.tab,.chip,.qty,.step-btn,.crow,.item,.alert,
+button,input,select,textarea,label,a,.tab,.chip,.srow,.item,.alert,.tick,.buyrow,
 .pad button,.pad-quick button,.padfield{touch-action:manipulation}
 body{
   background:var(--bg);color:var(--fg);
@@ -170,25 +170,6 @@ select{appearance:none;
 .alert .a-days span{font-size:10px;color:var(--fg-faint);text-transform:uppercase;
   letter-spacing:.06em;font-weight:500}
 
-/* ---------- Zählzeilen ---------- */
-.crow{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-  padding:13px 14px;margin-bottom:9px;transition:border-color .12s}
-.crow.done{border-color:var(--fg)}
-.crow-head{display:flex;align-items:baseline;gap:8px}
-.crow-name{font-weight:550;font-size:16px;flex:1;min-width:0;letter-spacing:-.017em;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.crow-meta{font-size:12.5px;color:var(--fg-faint);margin-top:2px}
-.stepper{display:flex;align-items:center;gap:8px;margin-top:12px}
-.step-btn{width:var(--tap);height:var(--tap);flex:none;border-radius:10px;background:transparent;
-  border:1px solid var(--line-2);font-size:22px;font-weight:400;display:grid;place-items:center;
-  line-height:1;color:var(--fg)}
-.step-btn:active{background:var(--card-2)}
-.qty{flex:1;height:var(--tap);border-radius:10px;background:var(--bg-2);border:1px solid var(--line);
-  font-size:22px;font-weight:600;letter-spacing:-.03em;text-align:center;display:flex;
-  align-items:center;justify-content:center;gap:6px;min-width:0;color:var(--fg-faint)}
-.qty.set{border-color:var(--fg);background:var(--card);color:var(--fg)}
-.qty .unit{font-size:12px;font-weight:450;color:var(--fg-faint);letter-spacing:-.005em}
-
 .savebar{position:fixed;left:0;right:0;bottom:calc(66px + var(--safe-b));z-index:35;padding:0 18px 10px;
   pointer-events:none}
 .savebar .in{max-width:680px;margin:0 auto;pointer-events:auto}
@@ -236,6 +217,30 @@ select{appearance:none;
 .tick .t-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   font-weight:500;letter-spacing:-.014em}
 .tick .t-val{font-size:13px;color:var(--fg-dim);flex:none;font-variant-numeric:tabular-nums}
+
+/* Hinweis unter dem Zahlenblock: was die eingetippte Menge bedeutet */
+.padhint{margin-top:11px;padding:9px 12px;border-radius:9px;background:var(--card-2);
+  font-size:13px;color:var(--fg-dim);line-height:1.45;text-align:center}
+.padhint.warn{background:transparent;border:1px solid var(--fg);color:var(--fg)}
+.padhint b{color:var(--fg);font-weight:600}
+
+/* ---------- Bestandsliste auf der Startseite ---------- */
+.srow{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:var(--card);
+  border:1px solid var(--line);border-radius:var(--r);padding:13px 14px;margin-bottom:8px}
+.srow.done{border-color:var(--fg)}
+.srow .s-dot{width:7px;height:7px;border-radius:50%;flex:none;background:transparent}
+.srow .s-dot.warn{box-shadow:inset 0 0 0 1.5px var(--fg-faint)}
+.srow .s-dot.crit{background:var(--fg)}
+.srow .s-body{flex:1;min-width:0}
+.srow .s-name{display:block;font-weight:545;letter-spacing:-.016em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow .s-meta{display:block;font-size:12.5px;color:var(--fg-faint);margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.srow .s-stock{flex:none;text-align:right;line-height:1.2;padding-left:4px}
+.srow .s-stock b{display:block;font-size:16px;font-weight:620;letter-spacing:-.025em;
+  font-variant-numeric:tabular-nums}
+.srow .s-stock span{font-size:11px;color:var(--fg-faint)}
+.srow.done .s-stock b{color:var(--fg)}
 
 /* ---------- Zusammenfassung nach der Zaehlung ---------- */
 .sum-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
@@ -379,15 +384,17 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
 
     <!-- Startseite: Erinnerung, Zählrunde starten, Einzelzählung -->
     <div id="countHome">
+      <div class="kpis" id="countKpis"></div>
       <div id="alertZone"></div>
 
       <div class="section-title">Zählen</div>
       <div class="card" id="roundStart"></div>
 
-      <div class="section-title">Einzeln nachzählen</div>
+      <div class="section-title" id="stockTitle">Aktueller Bestand</div>
       <input type="text" id="countSearch" placeholder="Getränk suchen…" autocomplete="off">
       <div class="chips" id="countCats"></div>
       <div id="countList"></div>
+      <div class="tiny faint" style="text-align:center;padding:4px 0 10px" id="stockFoot"></div>
     </div>
   </section>
 
@@ -1120,7 +1127,10 @@ function askConfirm(title, text, okLabel, onOk){
    packs/singles bleiben Strings, damit "noch nichts eingetippt" und
    "ausdrücklich 0" unterscheidbar sind. */
 function padState(d, baseQty){
-  const st = { packs:"", singles:"", field: packSize(d) ? "packs" : "singles", touched:false, last:null };
+  /* ana   = Auswertung des Getränks, damit der Hinweis den Verbrauch zeigen kann
+     addTo = aktueller Bestand, wenn die Menge dazukommt (Nachkauf) */
+  const st = { packs:"", singles:"", field: packSize(d) ? "packs" : "singles",
+               touched:false, last:null, ana:null, addTo:null };
   if (baseQty != null && baseQty !== ""){
     const sp = splitPack(baseQty, d);
     if (sp){ st.packs = String(sp.packs); st.singles = String(sp.rest).replace(".", ","); }
@@ -1130,6 +1140,40 @@ function padState(d, baseQty){
   return st;
 }
 function padValue(d, st){ return toBase(parseNum(st.packs || 0), parseNum(st.singles || 0), d); }
+
+/* Was bedeutet die gerade eingetippte Zahl? Direkt beim Tippen sichtbar –
+   dadurch fällt ein Vertipper auf, solange er noch zu ändern ist. */
+function padHintHtml(d, st){
+  if (!st.touched) return "";
+  const v = padValue(d, st);
+
+  if (st.addTo != null)
+    return '<div class="padhint">Bestand steigt damit auf <b>' +
+      esc(qtyText(num(st.addTo) + v, d, true)) + '</b></div>';
+
+  const a = st.ana;
+  if (!a) return "";
+  if (!a.lastCount)
+    return '<div class="padhint">Erste Zählung – Verbrauch lässt sich erst ab der zweiten berechnen.</div>';
+
+  const before = num(a.stock);
+  const diff = Math.round((before - v) * 100) / 100;
+  if (diff < -0.0001)
+    return '<div class="padhint warn">Der Bestand wäre um <b>' + fmt(-diff) +
+      '</b> gestiegen – fehlt eine Lieferung?</div>';
+
+  const days = num(a.daysSinceCount, 0);
+  let t = 'das wären <b>' + esc(qtyUnit(diff, unitOf(d))) + '</b> verbraucht';
+  if (days >= 0.5){
+    const perDay = diff / days;
+    t += " in " + fmt(days, 1) + " Tagen · Ø " + fmt(perDay, 2) + "/Tag";
+    /* Auffällig weit über dem bisherigen Schnitt? Dann lieber nachfragen. */
+    if (a.ok && a.perDay > 0 && perDay / a.perDay >= 3)
+      return '<div class="padhint warn">' + t + ' – rund ' + fmt(perDay / a.perDay, 1) +
+        '-mal so viel wie sonst (Ø ' + fmt(a.perDay, 2) + '/Tag). Vertippt?</div>';
+  }
+  return '<div class="padhint">' + t + '</div>';
+}
 
 function padHtml(d, st){
   const ps = packSize(d);
@@ -1155,7 +1199,7 @@ function padHtml(d, st){
     ? '<button data-q="last" class="qlast">wie zuletzt</button>' + nums.slice(0, 3).map(btn).join("")
     : nums.map(btn).join("");
 
-  return '<div class="padfields">' + fields + '</div>' + totalLine +
+  return '<div class="padfields">' + fields + '</div>' + totalLine + padHintHtml(d, st) +
     '<div class="pad-quick" style="margin-top:12px">' + quick + '</div>' +
     '<div class="pad">' +
       [1,2,3,4,5,6,7,8,9].map(n => '<button data-d="' + n + '">' + n + '</button>').join("") +
@@ -1196,6 +1240,8 @@ function qtySheet(opts){
   const d = opts.drink;
   const st = padState(d, opts.value);
   st.last = opts.last == null ? null : opts.last;
+  st.ana = opts.analysis || null;
+  st.addTo = opts.addTo == null ? null : opts.addTo;
   sheet(
     '<h3>' + esc(opts.title) + '</h3>' +
     (opts.sub ? '<div class="small muted">' + esc(opts.sub) + '</div>' : "") +
@@ -1221,7 +1267,7 @@ function qtySheet(opts){
    --------------------------------------------------------------------- */
 const pending = new Map();      // drinkId -> Menge in Einzeleinheiten (noch nicht gespeichert)
 let countFilter = { cat: "", q: "" };
-const round = { active:false, order:[], idx:0, cat:"", overview:false, st:null, stFor:"" };
+const round = { active:false, order:[], idx:0, cat:"", overview:false, st:null, stFor:"", restored:false };
 
 function hasPending(){ return pending.size > 0; }
 
@@ -1241,27 +1287,84 @@ function lastSession(){
   if (!store.counts.length) return null;
   const first = store.counts[0];
   const sess = first.session || "";
-  return { at: first.at, n: sess ? store.counts.filter(c => c.session === sess).length : 1 };
+  return { at: first.at, session: sess,
+           n: sess ? store.counts.filter(c => c.session === sess).length : 1 };
+}
+
+/* Eine gespeicherte Zählung zurücknehmen. Die Mengen wandern zurück in den
+   Zwischenspeicher, damit sich der Vertipper korrigieren und erneut speichern
+   lässt, statt alles noch einmal zählen zu müssen. */
+async function undoSession(session){
+  const rows = store.counts.filter(c => c.session === session);
+  if (!rows.length) return;
+  rows.forEach(c => pending.set(c.drinkId, num(c.qty)));
+  try {
+    for (const c of rows) await store.remove("counts", c.id);
+    toast("Zurückgenommen – die Mengen stehen wieder zum Korrigieren bereit");
+  } catch(err){ console.error(err); toast("Fehler beim Zurücknehmen"); }
+  renderAll();
+}
+
+/* Angefangene Runde übersteht das Schließen der Seite.
+   Am Tresen wird das Telefon zwischendurch weggelegt – ohne das wäre die
+   halbe Runde weg. */
+const LS_ROUND = "staffelbar.round.v1";
+function persistRound(){
+  try {
+    if (!pending.size && !round.active){ localStorage.removeItem(LS_ROUND); return; }
+    localStorage.setItem(LS_ROUND, JSON.stringify({
+      bar: settings.barId, active: round.active, order: round.order, idx: round.idx,
+      cat: round.cat, pending: Array.from(pending.entries()), at: Date.now()
+    }));
+  } catch(_){}
+}
+function restoreRound(){
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(LS_ROUND) || "null"); } catch(_){}
+  if (!d || d.bar !== settings.barId) return;
+  /* Nach zwei Tagen ist eine liegengebliebene Runde nicht mehr glaubwürdig */
+  if (!d.at || Date.now() - d.at > 2 * DAY){ try { localStorage.removeItem(LS_ROUND); } catch(_){} return; }
+  (d.pending || []).forEach(r => { if (r && r[0] != null) pending.set(r[0], num(r[1])); });
+  if (d.active){
+    round.active = true;
+    round.order = Array.isArray(d.order) ? d.order : [];
+    round.idx = Math.max(0, num(d.idx, 0));
+    round.cat = d.cat || "";
+    round.restored = true;
+  }
 }
 
 /* ---- Zählrunde steuern ---- */
+const ROUND_DUE = "__faellig__";      // Sonderfall: nur was zur Neige geht
 function roundOrder(cat){
-  return store.drinks.filter(d => !cat || d.category === cat)
+  let pool = store.drinks;
+  if (cat === ROUND_DUE){
+    const due = {}; alerts().forEach(x => { due[x.a.drink.id] = true; });
+    pool = pool.filter(d => due[d.id]);
+  } else if (cat){
+    pool = pool.filter(d => d.category === cat);
+  }
+  return pool
     .slice()
     .sort((a, b) =>
       String(a.category || "￿").localeCompare(String(b.category || "￿"), "de") ||
       String(a.name || "").localeCompare(String(b.name || ""), "de"))
     .map(d => d.id);
 }
+function roundLabel(cat){
+  return cat === ROUND_DUE ? "Nur was knapp wird" : (cat || "Alle Getränke");
+}
 function startRound(cat){
   const order = roundOrder(cat);
   if (!order.length) return toast("Keine Getränke in dieser Auswahl");
   round.active = true; round.order = order; round.idx = 0; round.cat = cat || "";
-  round.overview = false; round.st = null; round.stFor = "";
+  round.overview = false; round.st = null; round.stFor = ""; round.restored = false;
   setView("count");
 }
 function endRound(){
   round.active = false; round.st = null; round.stFor = ""; round.overview = false;
+  round.restored = false;
+  persistRound();
   renderAll();
 }
 function roundState(){
@@ -1271,6 +1374,7 @@ function roundState(){
     const a = analyze(id);
     round.st = padState(d, pending.has(id) ? pending.get(id) : null);
     round.st.last = a.lastCount ? num(a.lastCount.qty) : null;
+    round.st.ana = a;
     round.stFor = id;
   }
   return round.st;
@@ -1297,6 +1401,12 @@ function roundJump(i){
 
 function renderRound(){
   const zone = $("#roundZone");
+  /* Beim Start sind die Getränke noch nicht geladen – eine wiederhergestellte
+     Runde darf daran nicht scheitern. */
+  if (!store.drinks.length){
+    zone.innerHTML = '<div class="empty">Getränke werden geladen…</div>';
+    return;
+  }
   /* zwischenzeitlich gelöschte Getränke aus der Runde nehmen */
   round.order = round.order.filter(id => drinkById(id));
   if (!round.order.length){ endRound(); return; }
@@ -1306,7 +1416,11 @@ function renderRound(){
   const counted = round.order.filter(id => pending.has(id)).length;
   const bar = '<div class="progress"><div class="p-bar"><i style="width:' +
     Math.round((Math.min(round.idx, total) / total) * 100) + '%"></i></div>' +
-    '<div class="p-txt">' + counted + " / " + total + ' gezählt</div></div>';
+    '<div class="p-txt">' + counted + " / " + total + ' gezählt</div></div>' +
+    (round.restored
+      ? '<div class="banner"><div><b>Angefangene Runde fortgesetzt.</b> ' + counted +
+        ' bereits erfasste Menge(n) sind noch da.</div></div>'
+      : "");
 
   /* --- Übersicht: was ist erledigt, was fehlt --- */
   if (round.overview){
@@ -1365,7 +1479,8 @@ function renderRound(){
 
   zone.innerHTML = bar +
     '<div class="round-card">' +
-      '<div class="round-cat">' + esc(d.category || "ohne Kategorie") + ' · ' + (round.idx + 1) + " von " + total + '</div>' +
+      '<div class="round-cat">' + esc(d.category || "ohne Kategorie") + ' · ' + (round.idx + 1) + " von " + total +
+        (round.cat === ROUND_DUE ? ' · nur Knappes' : '') + '</div>' +
       '<div class="round-name">' + esc(d.name) + '</div>' +
       '<div class="round-last">' + esc(last) + '</div>' +
       '<div id="padBody">' + padHtml(d, st) + '</div>' +
@@ -1408,16 +1523,28 @@ $("#roundZone").addEventListener("click", e => {
   }
 });
 
-/* ---- Startseite des Zähl-Tabs ---- */
+/* ---- Startseite des Zähl-Tabs: Bestand sehen und zählen ---- */
 function renderCount(){
   const rz = $("#roundZone");
   rz.classList.toggle("hide", !round.active);
   $("#countHome").classList.toggle("hide", round.active);
-  if (round.active){ renderRound(); return; }
+  if (round.active){ renderRound(); persistRound(); return; }
   rz.innerHTML = "";        // kein totes Markup stehen lassen (doppelte IDs)
 
-  /* Erinnerung ganz oben */
+  const ana = {}; analysisAll().forEach(a => { if (a.drink) ana[a.drink.id] = a; });
   const al = alerts();
+  const level = {}; al.forEach(x => { level[x.a.drink.id] = x.level; });
+  const ls = lastSession();
+  const cats = categories();
+
+  /* --- Kennzahlen: der Blick von der Tür aus --- */
+  $("#countKpis").innerHTML = store.drinks.length
+    ? kpi(String(store.drinks.length), "Getränke") +
+      kpi(String(al.length), al.length === 1 ? "wird knapp" : "werden knapp") +
+      kpi(ls ? relDays(ls.at).replace("vor ", "").replace(" Tagen", " T.").replace(" Std.", " h") : "–", "gezählt")
+    : "";
+
+  /* --- Erinnerung --- */
   const zone = $("#alertZone");
   if (!al.length){
     zone.innerHTML = store.drinks.length
@@ -1434,33 +1561,39 @@ function renderCount(){
         '</div>').join("");
   }
 
-  /* Zählrunde starten */
-  const cats = categories();
-  const ls = lastSession();
+  /* --- Zählrunde starten --- */
   const startBox = $("#roundStart");
   if (!store.drinks.length){
     startBox.innerHTML = '<div class="small muted">Sobald Getränke angelegt sind, lässt sich hier eine ' +
       'Zählrunde starten – ein Getränk nach dem anderen, mit Fortschrittsanzeige.</div>';
   } else {
+    /* Eine gerade gespeicherte Zählung lässt sich zurücknehmen, solange sie
+       frisch ist – der häufigste Fall ist ein Vertipper, der sofort auffällt. */
+    const undoable = ls && ls.session && (Date.now() - new Date(ls.at).getTime()) < 12 * 3600000;
     startBox.innerHTML =
       (pending.size
         ? '<div class="banner" style="margin-bottom:12px"><div><b>' + pending.size +
           ' Menge(n) erfasst, noch nicht gespeichert.</b> Unten speichern oder verwerfen.</div></div>'
         : "") +
-      '<div class="small muted" style="margin-bottom:12px">' +
-        (ls ? "Zuletzt gezählt " + esc(relDays(ls.at)) + " (" + ls.n + " Getränk" + (ls.n > 1 ? "e" : "") + ")."
-            : "Noch keine Zählung gespeichert.") +
+      '<div class="row small muted" style="margin-bottom:12px">' +
+        '<div style="flex:1;min-width:0">' +
+          (ls ? "Zuletzt gezählt " + esc(relDays(ls.at)) + " (" + ls.n + " Getränk" + (ls.n > 1 ? "e" : "") + ")."
+              : "Noch keine Zählung gespeichert.") +
+        '</div>' +
+        (undoable ? '<button class="btn sm ghost" data-act="undo">Zurücknehmen</button>' : "") +
       '</div>' +
       '<button class="btn primary block" data-start="">Zählrunde starten · ' + store.drinks.length + ' Getränke</button>' +
-      (cats.length > 1
-        ? '<div class="tiny faint" style="margin:12px 0 7px">Oder nur eine Kategorie:</div>' +
-          '<div class="chips" style="padding-bottom:0">' + cats.map(c =>
-            '<button class="chip" data-start="' + esc(c) + '">' + esc(c) + ' (' +
-            store.drinks.filter(d => d.category === c).length + ')</button>').join("") + '</div>'
+      (cats.length > 1 || al.length
+        ? '<div class="tiny faint" style="margin:12px 0 7px">Oder nur ein Teil:</div>' +
+          '<div class="chips" style="padding-bottom:0">' +
+            (al.length ? '<button class="chip" data-start="' + ROUND_DUE + '">Was knapp wird (' + al.length + ')</button>' : "") +
+            cats.map(c => '<button class="chip" data-start="' + esc(c) + '">' + esc(c) + ' (' +
+              store.drinks.filter(d => d.category === c).length + ')</button>').join("") +
+          '</div>'
         : "");
   }
 
-  /* Einzelzählung */
+  /* --- Aktueller Bestand: die Liste ist zugleich die Einzelzählung --- */
   chipRow($("#countCats"),
     [{ v:"", l:"Alle" }].concat(cats.map(c => ({ v:c, l:c }))),
     countFilter.cat, v => { countFilter.cat = v; renderCount(); });
@@ -1475,61 +1608,86 @@ function renderCount(){
   if (!list.length){
     target.innerHTML = '<div class="empty">' +
       (store.drinks.length ? "Keine Treffer." : "Noch keine Getränke angelegt.") + '</div>';
+    $("#stockFoot").textContent = "";
   } else {
-    const ana = {}; analysisAll().forEach(a => { if (a.drink) ana[a.drink.id] = a; });
     target.innerHTML = list.map(d => {
       const a = ana[d.id] || {};
       const has = pending.has(d.id);
-      const meta = a.lastCount
-        ? "zuletzt " + qtyText(num(a.lastCount.qty), d, true) + " · " + relDays(a.lastCount.at) +
-          (a.boughtAfter ? " · +" + qtyText(a.boughtAfter, d) + " geliefert" : "")
-        : "noch nie gezählt";
-      return '<div class="crow' + (has ? " done" : "") + '" data-id="' + esc(d.id) + '">' +
-        '<div class="crow-head"><div class="crow-name">' + esc(d.name) + '</div>' +
-        (packSize(d) ? '<span class="badge">' + esc(packHint(d)) + '</span>' : "") + '</div>' +
-        '<div class="crow-meta">' + esc(meta) + '</div>' +
-        '<div class="stepper">' +
-          '<button class="step-btn" data-act="minus">&minus;</button>' +
-          '<div class="qty' + (has ? " set" : "") + '" data-act="pad">' +
-            (has ? esc(qtyText(pending.get(d.id), d)) : "…") +
-            (has && settings.showPacks && packSize(d) ? "" : ' <span class="unit">' + esc(unitOf(d)) + '</span>') +
-          '</div>' +
-          '<button class="step-btn" data-act="plus">+</button>' +
-        '</div></div>';
+      const val = has ? pending.get(d.id) : a.stock;
+
+      /* Zeile zeigt den Bestand von jetzt: letzte Zählung plus alles, was
+         seitdem geliefert wurde. Eine noch nicht gespeicherte Zählung
+         verdrängt ihn, damit klar ist, was gleich gespeichert wird. */
+      let meta;
+      if (has) meta = "neu gezählt · noch nicht gespeichert";
+      else if (a.lastCount) meta = [
+        "gezählt " + relDays(a.lastCount.at),
+        a.boughtAfter ? "+" + qtyText(a.boughtAfter, d) + " geliefert" : null,
+        a.ok ? "Ø " + fmt(a.perDay, 2) + "/Tag" : null,
+        d.category || null            /* zuletzt: schneidet auf schmalen Geräten zuerst ab */
+      ].filter(Boolean).join(" · ");
+      else meta = "noch nie gezählt" + (d.category ? " · " + d.category : "");
+
+      /* Zweite Zeile rechts: die Reichweite, wenn es eine belastbare gibt –
+         sonst die Menge in Einzeleinheiten. */
+      const sp = settings.showPacks ? splitPack(num(val), d) : null;
+      const sub = has ? "wird gespeichert"
+        : (a.ok ? "noch " + fmt(a.daysLeft, a.daysLeft < 3 ? 1 : 0) + " Tage"
+                /* ohne Vorhersage: bei Gebinden die Gesamtzahl, sonst nichts –
+                   die Einheit steht schon in der Zeile darüber */
+                : (sp && sp.packs > 0 ? qtyUnit(num(val), unitOf(d)) : ""));
+      const stock = val == null
+        ? '<b class="faint">–</b><span>nie gezählt</span>'
+        : '<b>' + esc(qtyText(val, d)) + '</b><span>' + esc(sub) + '</span>';
+
+      return '<button class="srow' + (has ? " done" : "") + '" data-id="' + esc(d.id) + '">' +
+        '<span class="s-dot ' + (level[d.id] || "") + '"></span>' +
+        '<span class="s-body"><span class="s-name">' + esc(d.name) + '</span>' +
+        '<span class="s-meta">' + esc(meta) + '</span></span>' +
+        '<span class="s-stock">' + stock + '</span></button>';
     }).join("");
+
+    const counted = list.filter(d => (ana[d.id] || {}).stock != null).length;
+    $("#stockFoot").textContent = counted < list.length
+      ? (list.length - counted) + " von " + list.length + " noch nie gezählt · zum Zählen antippen"
+      : "Zum Nachzählen ein Getränk antippen";
   }
 
   const n = pending.size;
   $("#saveCount").textContent = n ? "Zählung speichern (" + n + ")" : "Zählung speichern";
   $("#saveBar").classList.toggle("hide", view !== "count" || round.active || !n);
+  persistRound();
 }
 
 $("#roundStart").addEventListener("click", e => {
-  const b = e.target.closest("[data-start]"); if (!b) return;
-  startRound(b.dataset.start);
+  const b = e.target.closest("[data-start]");
+  if (b){ startRound(b.dataset.start); return; }
+  const u = e.target.closest('[data-act="undo"]');
+  if (u){
+    const ls = lastSession(); if (!ls || !ls.session) return;
+    askConfirm("Letzte Zählung zurücknehmen?",
+      ls.n + " Eintrag/Einträge von " + fmtDateTime(ls.at) + " werden gelöscht. Die Mengen bleiben " +
+      "als ungespeicherte Zählung stehen, damit sich der Fehler korrigieren lässt.",
+      "Zurücknehmen", () => undoSession(ls.session));
+  }
 });
 
+/* Antippen zählt dieses eine Getränk nach */
 $("#countList").addEventListener("click", e => {
-  const row = e.target.closest(".crow"); if (!row) return;
-  const btn = e.target.closest("[data-act]"); if (!btn) return;
+  const row = e.target.closest(".srow"); if (!row) return;
   const id = row.dataset.id, d = drinkById(id); if (!d) return;
-  const cur = pending.has(id) ? pending.get(id) : 0;
-  const act = btn.dataset.act;
-
-  if (act === "minus"){ pending.set(id, Math.max(0, Math.round((cur - 1) * 100) / 100)); renderCount(); return; }
-  if (act === "plus"){ pending.set(id, Math.round((cur + 1) * 100) / 100); renderCount(); return; }
-  if (act === "pad"){
-    const a = analyze(id);
-    qtySheet({
-      title: d.name,
-      sub: a.lastCount ? "zuletzt " + qtyText(num(a.lastCount.qty), d, true) + " (" + relDays(a.lastCount.at) + ")"
-                       : "erste Zählung",
-      drink: d,
-      value: pending.has(id) ? pending.get(id) : "",
-      last: a.lastCount ? num(a.lastCount.qty) : null,
-      onOk: (v, entered) => { if (entered) pending.set(id, v); else pending.delete(id); renderCount(); }
-    });
-  }
+  const a = analyze(id);
+  qtySheet({
+    title: d.name,
+    sub: a.lastCount
+      ? "Bestand jetzt " + qtyText(num(a.stock), d, true) + " · gezählt " + relDays(a.lastCount.at)
+      : "erste Zählung",
+    drink: d,
+    analysis: a,
+    value: pending.has(id) ? pending.get(id) : "",
+    last: a.lastCount ? num(a.lastCount.qty) : null,
+    onOk: (v, entered) => { if (entered) pending.set(id, v); else pending.delete(id); renderCount(); }
+  });
 });
 $("#countSearch").addEventListener("input", e => { countFilter.q = e.target.value; renderCount(); });
 $("#saveCount").addEventListener("click", () => saveCounts());
@@ -1564,8 +1722,9 @@ async function saveCounts(){
   try {
     await store.addMany("counts", rows);
     pending.clear();
+    persistRound();
     if (round.active) endRound();
-    showSummary(summary, at);
+    showSummary(summary, at, session);
   } catch(err){
     console.error(err); toast("Fehler beim Speichern");
   }
@@ -1573,7 +1732,7 @@ async function saveCounts(){
   renderAll();
 }
 
-function showSummary(rows, at){
+function showSummary(rows, at, session){
   const used = rows.filter(r => r.consumed != null && r.consumed > 0);
   const totalUsed = used.reduce((s, r) => s + r.consumed, 0);
   const firsts = rows.filter(r => r.first).length;
@@ -1620,12 +1779,20 @@ function showSummary(rows, at){
     '<div class="card">' + (rows.length ? rows.map(line).join("") : '<div class="empty">–</div>') + '</div>' +
     '<div class="btn-grid" style="margin-top:6px">' +
       '<button class="btn ghost" data-act="shop">Zur Einkaufsliste</button>' +
-      '<button class="btn primary" data-act="done">Fertig</button></div>',
+      '<button class="btn primary" data-act="done">Fertig</button></div>' +
+    '<button class="btn danger block" data-act="undo" style="margin-top:10px">Zählung zurücknehmen</button>',
     el => {
       el.addEventListener("click", e => {
         const b = e.target.closest("button"); if (!b) return;
         if (b.dataset.act === "done"){ closeSheet(); }
         if (b.dataset.act === "shop"){ closeSheet(); setView("shop"); }
+        if (b.dataset.act === "undo"){
+          closeSheet();
+          askConfirm("Zählung zurücknehmen?",
+            "Die gerade gespeicherten Einträge werden gelöscht. Die Mengen bleiben als " +
+            "ungespeicherte Zählung stehen, damit sich ein Vertipper korrigieren lässt.",
+            "Zurücknehmen", () => undoSession(session));
+        }
       });
     });
 }
@@ -1799,6 +1966,8 @@ $("#buyOpen").addEventListener("click", () => {
   const body = () => {
     const d = drinkById(state.drinkId);
     state.st = padState(d, "");
+    const a = analyze(d.id);
+    state.st.addTo = a.stock == null ? 0 : num(a.stock);
     return padHtml(d, state.st);
   };
   sheet(
@@ -2624,6 +2793,7 @@ window.addEventListener("online",  () => { store.status = store.mode === "fireba
 window.addEventListener("offline", () => { if (store.mode === "firebase") store.status = "offline"; renderAll(); });
 
 store.onChange(renderAll);
+restoreRound();
 renderAll();
 store.connect();
 </script>

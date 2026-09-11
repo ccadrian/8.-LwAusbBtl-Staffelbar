@@ -20,7 +20,11 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 
 | Bereich | Funktion |
 |---|---|
-| **Zählrunde** | Geführt, ein Getränk nach dem anderen, nach Kategorie sortiert, mit Fortschrittsanzeige. Der Zahlenblock steht direkt darunter – kein Suchen in langen Listen. Überspringen ist erlaubt, die Übersicht zeigt jederzeit, was schon gezählt ist und was fehlt. |
+| **Startseite** | Zeigt den **aktuellen Bestand** aller Getränke auf einen Blick – letzte Zählung plus alles, was seitdem geliefert wurde – mit Reichweite in Tagen und Dringlichkeitsmarkierung. Antippen zählt dieses eine Getränk nach. Darüber drei Kennzahlen: Anzahl Getränke, wie viele knapp werden, wann zuletzt gezählt wurde. |
+| **Zählrunde** | Geführt, ein Getränk nach dem anderen, nach Kategorie sortiert, mit Fortschrittsanzeige. Der Zahlenblock steht direkt darunter – kein Suchen in langen Listen. Überspringen ist erlaubt, die Übersicht zeigt jederzeit, was schon gezählt ist und was fehlt. Wahlweise nur eine Kategorie oder **nur das, was knapp wird**. |
+| **Kontrolle beim Tippen** | Schon während der Eingabe steht darunter, was die Zahl bedeutet: „das wären 12 Flaschen verbraucht in 7 Tagen · Ø 1,7/Tag“. Steigt der Bestand oder liegt der Verbrauch um ein Vielfaches über dem Schnitt, wird deutlich gewarnt – ein Vertipper fällt auf, solange er noch zu ändern ist. |
+| **Unterbrechbar** | Eine angefangene Runde übersteht das Schließen der Seite: Position und erfasste Mengen sind beim nächsten Öffnen wieder da (bis zu zwei Tage). |
+| **Zurücknehmen** | Eine gerade gespeicherte Zählung lässt sich rückgängig machen. Die Mengen bleiben dabei als ungespeicherte Zählung stehen, sodass sich ein Fehler korrigieren lässt, ohne noch einmal durch die ganze Bar zu laufen. |
 | **Kästen** | Pro Getränk lässt sich eine Gebindegröße hinterlegen (1 Kasten = 20 Flaschen). Gezählt wird dann in **Kästen + einzelne Flaschen**, das Tool rechnet um. Gespeichert und gerechnet wird immer in Einzelflaschen. |
 | **Zusammenfassung** | Direkt nach dem Speichern: was sich verändert hat, was verbraucht wurde, wo der Bestand gestiegen ist – ohne selbst zu rechnen. |
 | **Einkaufsliste** | Füllt sich von selbst aus Warnschwelle und Vorhersage, mit Mengenvorschlag in vollen Kästen. Eigene Positionen (auch freie Notizen wie „Eis“) lassen sich ergänzen. Abhaken bucht den Kauf als Nachkauf – die Position verschwindet dadurch von allein. |
@@ -159,6 +163,9 @@ liegt (Standard 7 Tage) oder der Mindestbestand unterschritten ist.
   Jeder Datenraum braucht eine eigene Regel-Zeile (siehe oben).
 - **Backup**: Tab **Mehr → Export**. Das JSON lässt sich dort auch wieder
   einspielen.
+- **Angefangene Runden** liegen nur im Browser des Geräts (`localStorage`),
+  nicht in Firestore. Wer die Runde auf dem Telefon beginnt, beendet sie auch
+  dort – gespeichert wird erst beim Abschluss, und dann für alle.
 - **Kein Zoom-Gezappel**: Auf dem Telefon vergrößert sich die Seite beim
   schnellen Tippen nicht mehr. Dafür sorgen `touch-action: manipulation`
   (schaltet den Doppeltipp-Zoom ab) und Eingabefelder mit mindestens 16px

@@ -219,9 +219,15 @@ select{appearance:none;
 .tick .t-val{font-size:13px;color:var(--fg-dim);flex:none;font-variant-numeric:tabular-nums}
 
 /* Hinweis unter dem Zahlenblock: was die eingetippte Menge bedeutet */
-.padhint{margin-top:11px;padding:9px 12px;border-radius:9px;background:var(--card-2);
-  font-size:13px;color:var(--fg-dim);line-height:1.45;text-align:center}
+/* Feste Mindesthöhe: der Hinweis erscheint beim ersten Tastendruck und darf
+   den Zahlenblock nicht nach unten schieben – sonst trifft der nächste
+   schnelle Tipp die falsche Taste. */
+.padhint{margin-top:11px;padding:8px 12px;border-radius:9px;background:var(--card-2);
+  font-size:13px;color:var(--fg-dim);line-height:1.45;text-align:center;
+  min-height:46px;display:flex;align-items:center;justify-content:center}
 .padhint.warn{background:transparent;border:1px solid var(--fg);color:var(--fg)}
+.padhint.empty{background:transparent}
+.padhint > span{display:block}
 .padhint b{color:var(--fg);font-weight:600}
 
 /* ---------- Bestandsliste auf der Startseite ---------- */
@@ -436,7 +442,7 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
     <div class="row" style="margin-bottom:4px">
       <div class="tiny faint">Mengen anzeigen als</div><div class="spacer"></div>
       <div class="seg" id="statUnit">
-        <button data-packs="0">Einzeln</button><button data-packs="1">Gebinde</button>
+        <button data-packs="0">Flaschen</button><button data-packs="1">Kästen</button>
       </div>
     </div>
 
@@ -503,7 +509,7 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
       <div class="small faint">Getränke, deren Bestand laut Hochrechnung nur noch für weniger als diese Anzahl Tage reicht, erscheinen oben in der Erinnerung und auf der Einkaufsliste.</div>
       <hr class="sep">
       <label class="sw"><input type="checkbox" id="cfgPacks">
-        <span>Mengen in Gebinden anzeigen<br><span class="small faint">z.&nbsp;B. „3 Kästen + 4 Flaschen“ statt „64 Flaschen“. Gerechnet wird immer in Einzelflaschen.</span></span>
+        <span>Mengen in Kästen anzeigen<br><span class="small faint">z.&nbsp;B. „1 Kasten + 2 Flaschen“ statt „22 Flaschen“. Gerechnet wird immer in Einzelflaschen.</span></span>
       </label>
     </div>
 
@@ -633,7 +639,7 @@ function loadSettings(){
     fb: s.fb && typeof s.fb === "object" ? s.fb : null,
     barId: (urlBar || s.barId || DEFAULT_BAR_ID).trim().replace(/[^\w\-]/g, "-") || DEFAULT_BAR_ID,
     warnDays: num(s.warnDays, 7) || 7,
-    /* Anzeige in Gebinden (Kästen). Gerechnet wird immer in Einzeleinheiten. */
+    /* Anzeige in Kästen. Gerechnet wird immer in Einzelflaschen. */
     showPacks: s.showPacks === undefined ? true : !!s.showPacks
   };
 }
@@ -655,12 +661,12 @@ function activeFbConfig(){
    Kästen sind reine Ein- und Ausgabe – sie werden beim Erfassen in Einzel-
    einheiten umgerechnet und nie als eigene Größe gespeichert. Dadurch bleiben
    Verbrauch, Ø-Werte und Vorhersage über alle Getränke hinweg vergleichbar,
-   auch wenn sich die Gebindegröße später ändert.
+   auch wenn sich die Kastengröße später ändert.
 
    Dokumente unter bars/<barId>/… :
      drinks    { name, category, unit, packSize, packName, minStock, createdAt }
-                 packSize = Einzeleinheiten je Gebinde (0/1 = kein Gebinde)
-                 packName = Singular des Gebindes, z. B. "Kasten"
+                 packSize = Flaschen je Kasten (0/1 = das Getränk hat keinen Kasten)
+                 packName = Wort dafür, im Regelfall "Kasten"
      counts    { drinkId, qty, packs, singles, at (ISO), session, note }
                  qty      = Gesamtmenge in Einzeleinheiten (maßgeblich)
                  packs/singles = wie es eingetippt wurde, nur zur Anzeige
@@ -988,7 +994,7 @@ function alerts(){
 }
 
 /* Vorschlag, wie viel nachzukaufen ist – in Einzeleinheiten, aber auf volle
-   Gebinde aufgerundet, weil im Getränkemarkt ganze Kästen gekauft werden.
+   Kästen aufgerundet, weil im Getränkemarkt ganze Kästen gekauft werden.
    Zielbestand ist der Verbrauch der dreifachen Warnfrist; ohne belastbaren
    Ø-Wert ersatzweise der doppelte Mindestbestand. */
 function suggestBuy(a){
@@ -1004,10 +1010,10 @@ function suggestBuy(a){
   return ps ? Math.ceil(need / ps) * ps : Math.ceil(need);
 }
 /* ---------------------------------------------------------------------
-   5b) Gebinde: Kästen als Ein-/Ausgabe, gerechnet wird in Einzeleinheiten
+   5b) Kästen als Ein- und Ausgabe, gerechnet wird in Einzelflaschen
 
-   packSize = wie viele Einzeleinheiten in einem Gebinde stecken (20 Flaschen
-   je Kasten). 0 oder 1 heißt: das Getränk hat kein Gebinde. Gespeichert wird
+   packSize = wie viele Flaschen in einen Kasten gehen (20). 0 oder 1 heißt:
+   dieses Getränk gibt es nur einzeln. Gespeichert wird
    immer nur die Gesamtzahl der Einzeleinheiten – die Aufteilung in Kästen
    entsteht erst bei der Anzeige und lässt sich jederzeit umstellen.
    --------------------------------------------------------------------- */
@@ -1016,7 +1022,7 @@ function suggestBuy(a){
 const SINGULAR = { Flaschen:"Flasche", Dosen:"Dose", Kästen:"Kasten", Fässer:"Fass",
   Gläser:"Glas", Kisten:"Kiste", Packungen:"Packung", Liter:"Liter", Stk:"Stk" };
 const PACK_PLURAL = { Kasten:"Kästen", Kiste:"Kisten", Karton:"Kartons", Palette:"Paletten",
-  Träger:"Träger", Gebinde:"Gebinde", Fass:"Fässer", Pack:"Packs", Sixpack:"Sixpacks",
+  Träger:"Träger", Fass:"Fässer", Pack:"Packs", Sixpack:"Sixpacks",
   Packung:"Packungen", Rolle:"Rollen" };
 
 function unitOf(d){ return (d && d.unit) ? d.unit : "Stk"; }
@@ -1025,13 +1031,14 @@ function qtyUnit(n, unit){
   return fmt(n) + " " + u;
 }
 
-/* Einzeleinheiten je Gebinde; 0 = das Getränk wird nur einzeln geführt */
+/* Flaschen je Kasten; 0 = das Getränk wird nur einzeln geführt */
 function packSize(d){ const n = num(d && d.packSize, 0); return n > 1 ? Math.round(n) : 0; }
 function packOne(d){ return (d && d.packName) ? d.packName : "Kasten"; }
 function packMany(d){ const o = packOne(d); return PACK_PLURAL[o] || o; }
 function packWord(n, d){ return n === 1 ? packOne(d) : packMany(d); }
 
-/* Gesamtmenge -> { packs, rest }; null, wenn das Getränk kein Gebinde hat */
+/* Gesamtmenge -> { packs, rest }: 22 Flaschen werden zu 1 Kasten + 2.
+   null, wenn das Getränk keinen Kasten hat. */
 function splitPack(qty, d){
   const ps = packSize(d);
   if (!ps) return null;
@@ -1059,7 +1066,7 @@ function qtyFull(qty, d){
   const sp = settings.showPacks ? splitPack(qty, d) : null;
   return (sp && sp.packs > 0) ? t + " (" + qtyUnit(num(qty), unitOf(d)) + ")" : t;
 }
-/* Zeile fürs Gebinde, z. B. "1 Kasten = 20 Flaschen" */
+/* Merksatz, z. B. "1 Kasten = 20 Flaschen" */
 function packHint(d){
   const ps = packSize(d);
   return ps ? "1 " + packOne(d) + " = " + qtyUnit(ps, unitOf(d)) : "";
@@ -1142,9 +1149,9 @@ function askConfirm(title, text, okLabel, onOk){
     });
 }
 
-/* --- Mengen-Eingabe: Gebinde-Felder + großer Zahlenblock -------------
+/* --- Mengen-Eingabe: Kästen, Flaschen und großer Zahlenblock --------
    Ein Bauteil für alles, was eine Menge erfasst: Zählrunde, Einzel-
-   zählung, Nachkauf, Einkaufsliste. Hat ein Getränk ein Gebinde, gibt es
+   zählung, Nachkauf, Einkaufsliste. Hat ein Getränk einen Kasten, gibt es
    zwei Felder (Kästen / Einzelflaschen); der Zahlenblock füllt immer das
    angetippte Feld. Gerechnet wird am Ende in Einzeleinheiten.
    packs/singles bleiben Strings, damit "noch nichts eingetippt" und
@@ -1166,24 +1173,29 @@ function padValue(d, st){ return toBase(parseNum(st.packs || 0), parseNum(st.sin
 
 /* Was bedeutet die gerade eingetippte Zahl? Direkt beim Tippen sichtbar –
    dadurch fällt ein Vertipper auf, solange er noch zu ändern ist. */
+const PAD_HINT_EMPTY = '<div class="padhint empty"></div>';
+/* Der Kasten ist ein Flex-Container (für die feste Höhe), deshalb muss der
+   Text in einem eigenen Element stecken – sonst verschluckt Flex die
+   Leerzeichen rund um die fett gesetzte Menge. */
+function padHint(cls, html){
+  return '<div class="padhint' + (cls ? " " + cls : "") + '"><span>' + html + '</span></div>';
+}
 function padHintHtml(d, st){
-  if (!st.touched) return "";
+  if (!st.touched) return PAD_HINT_EMPTY;
   const v = padValue(d, st);
 
   if (st.addTo != null)
-    return '<div class="padhint">Bestand steigt damit auf <b>' +
-      esc(qtyText(num(st.addTo) + v, d, true)) + '</b></div>';
+    return padHint("", 'Bestand steigt damit auf <b>' + esc(qtyText(num(st.addTo) + v, d, true)) + '</b>');
 
   const a = st.ana;
-  if (!a) return "";
+  if (!a) return PAD_HINT_EMPTY;
   if (!a.lastCount)
-    return '<div class="padhint">Erste Zählung – Verbrauch lässt sich erst ab der zweiten berechnen.</div>';
+    return padHint("", 'Erste Zählung – Verbrauch lässt sich erst ab der zweiten berechnen.');
 
   const before = num(a.stock);
   const diff = Math.round((before - v) * 100) / 100;
   if (diff < -0.0001)
-    return '<div class="padhint warn">Der Bestand wäre um <b>' + fmt(-diff) +
-      '</b> gestiegen – fehlt ein Einkauf?</div>';
+    return padHint("warn", 'Der Bestand wäre um <b>' + fmt(-diff) + '</b> gestiegen – fehlt ein Einkauf?');
 
   const days = num(a.daysSinceCount, 0);
   let t = 'das wären <b>' + esc(qtyUnit(diff, unitOf(d))) + '</b> verbraucht';
@@ -1192,10 +1204,10 @@ function padHintHtml(d, st){
     t += " in " + fmt(days, 1) + " Tagen · Ø " + fmt(perDay, 2) + "/Tag";
     /* Auffällig weit über dem bisherigen Schnitt? Dann lieber nachfragen. */
     if (a.ok && a.perDay > 0 && perDay / a.perDay >= 3)
-      return '<div class="padhint warn">' + t + ' – rund ' + fmt(perDay / a.perDay, 1) +
-        '-mal so viel wie sonst (Ø ' + fmt(a.perDay, 2) + '/Tag). Vertippt?</div>';
+      return padHint("warn", '<b>' + esc(qtyUnit(diff, unitOf(d))) + '</b> verbraucht – rund ' +
+        fmt(perDay / a.perDay, 1) + '-mal so viel wie sonst. Vertippt?');
   }
-  return '<div class="padhint">' + t + '</div>';
+  return padHint("", t);
 }
 
 function padHtml(d, st){
@@ -1209,10 +1221,21 @@ function padHtml(d, st){
     ? field("packs", packMany(d), st.packs) + field("singles", unitOf(d), st.singles)
     : field("singles", unitOf(d), st.singles);
 
+  /* Solange nichts eingetippt ist, steht dort der Merksatz; sobald eine Zahl
+     da ist, die Aufteilung: 22 Flaschen sind 1 Kasten + 2 Flaschen. */
   const total = padValue(d, st);
+  const sp = ps ? splitPack(total, d) : null;
+  const brk = sp
+    ? (sp.packs
+        ? fmt(sp.packs) + " " + packWord(sp.packs, d) + (sp.rest ? " + " + qtyUnit(sp.rest, unitOf(d)) : "")
+        : qtyUnit(sp.rest, unitOf(d)))
+    : "";
   const totalLine = ps
-    ? '<div class="padtotal">macht <b>' + esc(qtyUnit(total, unitOf(d))) + '</b>' +
-      ' <span class="faint">· ' + esc(packHint(d)) + '</span></div>'
+    ? '<div class="padtotal">' + (st.touched
+        ? 'macht <b>' + esc(brk) + '</b>' +
+          (sp.packs ? ' <span class="faint">· ' + esc(qtyUnit(total, unitOf(d))) + '</span>' : '')
+        : '<span class="faint">' + esc(packHint(d)) + '</span>') +
+      '</div>'
     : "";
 
   /* vier Schnelltasten: mit vorheriger Zählung eine davon als "wie zuletzt" */
@@ -1232,10 +1255,20 @@ function padHtml(d, st){
     '</div>';
 }
 
+/* 22 eingetippte Flaschen als 1 Kasten + 2 zurückschreiben. Passiert erst
+   beim Feldwechsel – während des Tippens würde die Zahl sonst wegspringen. */
+function padNormalize(d, st){
+  if (!st.touched || !packSize(d)) return;
+  const sp = splitPack(padValue(d, st), d);
+  if (!sp) return;
+  st.packs = String(sp.packs);
+  st.singles = String(sp.rest).replace(".", ",");
+}
+
 /* Gibt true zurück, wenn sich etwas geändert hat und neu gezeichnet werden muss */
 function padClick(e, d, st){
   const b = e.target.closest("button"); if (!b) return false;
-  if (b.dataset.field){ st.field = b.dataset.field; return true; }
+  if (b.dataset.field){ padNormalize(d, st); st.field = b.dataset.field; return true; }
   if (b.dataset.d != null){
     const cur = st[st.field], dg = b.dataset.d;
     if (dg === ","){
@@ -1658,7 +1691,7 @@ function renderCount(){
       const sp = settings.showPacks ? splitPack(num(val), d) : null;
       const sub = has ? "wird gespeichert"
         : (a.ok ? "noch " + fmt(a.daysLeft, a.daysLeft < 3 ? 1 : 0) + " Tage"
-                /* ohne Vorhersage: bei Gebinden die Gesamtzahl, sonst nichts –
+                /* ohne Vorhersage: bei Kästen die Gesamtzahl, sonst nichts –
                    die Einheit steht schon in der Zeile darüber */
                 : (sp && sp.packs > 0 ? qtyUnit(num(val), unitOf(d)) : ""));
       const stock = val == null
@@ -1916,7 +1949,7 @@ function renderShop(){
       '<button class="b-check" data-act="buy" title="Gekauft">&#10003;</button>' +
       '<div class="b-main"><div class="b-name">' + esc(it.name) +
         (it.auto ? "" : ' <span class="badge">Liste</span>') + '</div>' +
-        '<div class="b-sub">' + esc(it.sub) + (d && !ps ? " · kein Gebinde hinterlegt" : "") + '</div>' +
+        '<div class="b-sub">' + esc(it.sub) + (d && !ps ? " · keine Kastengröße hinterlegt" : "") + '</div>' +
         step + '</div>' +
       '<button class="b-x" data-act="drop" title="Von der Liste nehmen">&#10005;</button>' +
     '</div>';
@@ -2177,19 +2210,19 @@ function drinkForm(d){
     '<label class="fld"><span>Name</span><input type="text" id="fName" value="' + esc(d ? d.name : "") + '" placeholder="z. B. Weizenbier 0,5"></label>' +
     '<label class="fld"><span>Kategorie</span><input type="text" id="fCat" list="catList" value="' + esc(d ? (d.category||"") : "") + '" placeholder="z. B. Bier"></label>' +
     '<datalist id="catList">' + cats.map(c => '<option value="' + esc(c) + '">').join("") + '</datalist>' +
-    '<label class="fld"><span>Einzeleinheit &ndash; so wird gezählt und gerechnet</span>' +
+    '<label class="fld"><span>Einzeln gezählt wird in</span>' +
       '<input type="text" id="fUnit" list="unitList" value="' + esc(d ? unitOf(d) : "Flaschen") + '" placeholder="Flaschen"></label>' +
     '<datalist id="unitList"><option value="Flaschen"><option value="Dosen"><option value="Gläser"><option value="Liter"><option value="Stk"></datalist>' +
     '<div class="row" style="gap:10px;align-items:flex-start">' +
-      '<label class="fld" style="flex:1.15;min-width:0"><span>Gebinde</span>' +
-        '<input type="text" id="fPackName" list="packList" value="' + esc(d ? packOne(d) : "Kasten") + '" placeholder="Kasten"></label>' +
-      '<label class="fld" style="flex:1;min-width:0"><span>… enthält</span>' +
+      '<label class="fld" style="flex:1.25;min-width:0"><span>1 Kasten sind … Flaschen</span>' +
         '<input type="number" id="fPackSize" inputmode="numeric" step="1" min="0" value="' +
         esc(d ? (packSize(d) || "") : "") + '" placeholder="z. B. 20"></label>' +
+      '<label class="fld" style="flex:1;min-width:0"><span>heißt hier</span>' +
+        '<input type="text" id="fPackName" list="packList" value="' + esc(d ? packOne(d) : "Kasten") + '" placeholder="Kasten"></label>' +
     '</div>' +
     '<datalist id="packList"><option value="Kasten"><option value="Kiste"><option value="Träger"><option value="Karton"><option value="Sixpack"></datalist>' +
     '<div class="small faint" id="fPackHint" style="margin:-8px 0 16px"></div>' +
-    '<label class="fld"><span>Mindestbestand in Einzeleinheiten (0 = aus)</span><input type="number" id="fMin" inputmode="decimal" step="0.5" min="0" value="' + esc(d ? num(d.minStock, 0) : 0) + '"></label>' +
+    '<label class="fld"><span>Mindestbestand, einzeln gezählt (0 = aus)</span><input type="number" id="fMin" inputmode="decimal" step="0.5" min="0" value="' + esc(d ? num(d.minStock, 0) : 0) + '"></label>' +
     '</div>' +
     '<div class="btn-grid"><button class="btn ghost" id="fCancel">Abbrechen</button>' +
     '<button class="btn primary" id="fSave">Speichern</button></div>' +
@@ -2198,15 +2231,15 @@ function drinkForm(d){
       $("#fCancel", el).onclick = closeSheet;
       $("#fName", el).focus();
 
-      /* Zeigt im Klartext, was die Gebindeangabe bedeutet */
+      /* Zeigt im Klartext, was die Kastengröße bedeutet */
       const hint = $("#fPackHint", el);
       const syncHint = () => {
         const ps = Math.round(num($("#fPackSize", el).value, 0));
         const un = $("#fUnit", el).value.trim() || "Stk";
         const pn = $("#fPackName", el).value.trim() || "Kasten";
         hint.textContent = ps > 1
-          ? "1 " + pn + " = " + qtyUnit(ps, un) + ". Beim Zählen lassen sich " + (PACK_PLURAL[pn] || pn) +
-            " und einzelne " + un + " getrennt eintippen."
+          ? "1 " + pn + " = " + qtyUnit(ps, un) + ". Gezählte " + un + " werden automatisch umgerechnet: " +
+            qtyUnit(ps + 2, un) + " sind 1 " + pn + " + 2."
           : "Leer lassen, wenn es dieses Getränk nur einzeln gibt.";
       };
       ["fPackSize", "fPackName", "fUnit"].forEach(id =>
@@ -2280,7 +2313,7 @@ function renderStats(){
     kpi(String(countsInRange), "Zählungen");
 
   /* Gerechnet wird immer in Einzeleinheiten; hier lässt sich nur die
-     Anzeige auf Gebinde umstellen. */
+     Anzeige auf Kästen umstellen. */
   $$("#statUnit button").forEach(b =>
     b.classList.toggle("on", (b.dataset.packs === "1") === !!settings.showPacks));
 
@@ -2778,7 +2811,7 @@ function stamp(){ return new Date().toISOString().slice(0, 10); }
 $("#expCsv").addEventListener("click", () => {
   const sep = ";";
   const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-  const lines = [["Typ","Getränk","Kategorie","Einheit","Menge","Gebinde","Gebindegröße","Zeitpunkt","Notiz"].map(q).join(sep)];
+  const lines = [["Typ","Getränk","Kategorie","Einheit","Menge","in Kästen","Kastengröße","Zeitpunkt","Notiz"].map(q).join(sep)];
   const rows = []
     .concat(store.counts.map(c => ({ typ:"Zählung", r:c })))
     .concat(store.purchases.map(p => ({ typ:"Nachkauf", r:p })))

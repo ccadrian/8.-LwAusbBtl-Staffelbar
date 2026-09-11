@@ -25,11 +25,11 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 | **Kontrolle beim Tippen** | Schon während der Eingabe steht darunter, was die Zahl bedeutet: „das wären 12 Flaschen verbraucht in 7 Tagen · Ø 1,7/Tag“. Steigt der Bestand oder liegt der Verbrauch um ein Vielfaches über dem Schnitt, wird deutlich gewarnt – ein Vertipper fällt auf, solange er noch zu ändern ist. |
 | **Unterbrechbar** | Eine angefangene Runde übersteht das Schließen der Seite: Position und erfasste Mengen sind beim nächsten Öffnen wieder da (bis zu zwei Tage). |
 | **Zurücknehmen** | Eine gerade gespeicherte Zählung lässt sich rückgängig machen. Die Mengen bleiben dabei als ungespeicherte Zählung stehen, sodass sich ein Fehler korrigieren lässt, ohne noch einmal durch die ganze Bar zu laufen. |
-| **Kästen** | Pro Getränk lässt sich eine Gebindegröße hinterlegen (1 Kasten = 20 Flaschen). Gezählt wird dann in **Kästen + einzelne Flaschen**, das Tool rechnet um. Gespeichert und gerechnet wird immer in Einzelflaschen. |
+| **Kästen** | Pro Getränk steht hinterlegt, wie viele Flaschen in einen Kasten gehen (1 Kasten = 20 Flaschen). Gezählt wird dann in **Kästen + einzelne Flaschen**, und das Tool rechnet von selbst um: 22 gezählte Flaschen sind 1 Kasten + 2. Gespeichert und gerechnet wird immer in Einzelflaschen. |
 | **Zusammenfassung** | Direkt nach dem Speichern: was sich verändert hat, was verbraucht wurde, wo der Bestand gestiegen ist – ohne selbst zu rechnen. |
 | **Einkaufsliste** | Füllt sich von selbst aus Warnschwelle und Vorhersage, mit Mengenvorschlag in vollen Kästen. Die Menge lässt sich direkt in der Zeile ändern – **ein Schritt ist ein Kasten**, die Zahl selbst öffnet den Zahlenblock für krumme Mengen. Eigene Positionen (auch freie Notizen wie „Eis“) lassen sich ergänzen. Abhaken bucht den Kauf als Nachkauf – die Position verschwindet dadurch von allein. |
 | **Nachkauf** | Jeden Einkauf separat erfassen, damit der Verbrauch korrekt bleibt (ein Nachkauf ist kein Verbrauch). Geliefert wird nichts – die Kästen werden selbst vom Getränkemarkt geholt und hier eingebucht. |
-| **Statistik** | Verbrauch zwischen zwei Zählungen, Ranking der beliebtesten Getränke, Verlaufsdiagramm pro Getränk, Filter nach Kategorie und Zeitraum. Mengen wahlweise einzeln oder in Gebinden. |
+| **Statistik** | Verbrauch zwischen zwei Zählungen, Ranking der beliebtesten Getränke, Verlaufsdiagramm pro Getränk, Filter nach Kategorie und Zeitraum. Mengen wahlweise in Flaschen oder in Kästen. |
 | **Vorhersage** | Ø-Verbrauch pro Tag/Woche und Hochrechnung, wann ein Getränk leer ist – **nur wenn die Datenlage das hergibt** (siehe unten). |
 | **Erinnerung** | „Bald nachkaufen“ steht ganz oben auf der Startseite, sortiert nach Dringlichkeit. |
 | **Verwalten** | Getränke anlegen, bearbeiten, löschen; Export als CSV und JSON; JSON-Backup einspielen. |
@@ -98,7 +98,7 @@ unter Settings → Pages.
 </details>
 
 Die Daten liegen unter `bars/<bar-id>/…` in vier Sammlungen: `drinks`
-(mit `packSize`/`packName` fürs Gebinde), `counts`, `purchases` und `shopping`
+(`packSize` = Flaschen je Kasten, `packName` = das Wort dafür), `counts`, `purchases` und `shopping`
 (die Einkaufsliste). `qty` ist in allen Fällen die Menge in Einzeleinheiten.
 
 > **Zur Sicherheit:** Ohne Login müssen die Regeln offen sein – wer die
@@ -108,17 +108,19 @@ Die Daten liegen unter `bars/<bar-id>/…` in vier Sammlungen: `drinks`
 
 ---
 
-## Kästen und Einzelflaschen
+## Kästen und Flaschen
 
-Eine Regel für alles: **gerechnet und gespeichert wird immer in Einzeleinheiten**
-(Flasche, Dose, Glas). Kästen sind reine Ein- und Ausgabe – beim Zählen werden
-sie sofort umgerechnet, angezeigt werden sie wieder als Kästen, sofern das
-eingeschaltet ist (*Mehr → Einstellungen*, oder der Umschalter in der Statistik).
+Eine Regel für alles: **gerechnet und gespeichert wird immer in Einzelflaschen**.
+Kästen sind reine Ein- und Ausgabe. Beim Zählen lassen sich Kästen und einzelne
+Flaschen getrennt eintippen, und beides geht auch gemischt: Wer 22 in das
+Flaschen-Feld tippt, sieht sofort „macht 1 Kasten + 2 Flaschen“. Angezeigt wird
+wieder in Kästen, sofern das eingeschaltet ist (*Mehr → Einstellungen*, oder der
+Umschalter in der Statistik).
 
-Das hat einen Grund: Ändert sich später die Gebindegröße, bleiben alte Zahlen
+Das hat einen Grund: Ändert sich später die Kastengröße, bleiben alte Zahlen
 trotzdem vergleichbar, und Getränke mit und ohne Kasten lassen sich in derselben
-Statistik nebeneinander stellen. Ein Getränk ohne Gebindeangabe verhält sich
-genau wie vorher.
+Statistik nebeneinander stellen. Ein Getränk ohne Kastenangabe wird einfach
+nur einzeln geführt.
 
 ## Wie der Verbrauch berechnet wird
 

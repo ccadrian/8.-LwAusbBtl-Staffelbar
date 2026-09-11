@@ -263,11 +263,20 @@ select{appearance:none;
 .buyrow .b-name{font-weight:540;letter-spacing:-.014em;display:flex;align-items:center;gap:7px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .buyrow .b-sub{font-size:12.5px;color:var(--fg-faint);margin-top:3px;line-height:1.4}
-.buyrow .b-qty{flex:none;text-align:right;line-height:1.1}
-.buyrow .b-qty b{display:block;font-size:16px;font-weight:620;letter-spacing:-.025em}
-.buyrow .b-qty span{font-size:10px;color:var(--fg-faint);text-transform:uppercase;letter-spacing:.06em}
 .buyrow .b-x{width:30px;height:30px;flex:none;border-radius:8px;color:var(--fg-faint);font-size:15px;
   display:grid;place-items:center}
+
+/* Menge direkt in der Zeile ändern – in Kästen, wenn es welche gibt */
+.buyrow .b-step{display:flex;align-items:center;gap:8px;margin-top:11px}
+.buyrow .b-step button{height:40px;border-radius:9px;border:1px solid var(--line-2);
+  background:transparent;color:var(--fg)}
+.buyrow .b-step button:active{background:var(--card-2)}
+.buyrow .b-step .b-pm{width:46px;flex:none;font-size:21px;line-height:1;display:grid;place-items:center}
+.buyrow .b-step .b-val{flex:1;min-width:0;background:var(--bg-2);border-color:var(--line);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.2;padding:0 8px}
+.buyrow .b-step .b-val b{font-size:15px;font-weight:620;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.buyrow .b-step .b-val span{font-size:10.5px;color:var(--fg-faint);white-space:nowrap}
 
 /* ---------- Umschalter (Segmented) ---------- */
 .seg{display:inline-flex;padding:2px;border:1px solid var(--line-2);border-radius:9px;gap:2px}
@@ -404,11 +413,11 @@ hr.sep{border:none;border-top:1px solid var(--line);margin:16px 0}
     <div id="shopList"></div>
     <button class="btn block" id="shopAdd" style="margin-top:2px">+ Position hinzufügen</button>
 
-    <div class="section-title">Lieferung eintragen</div>
+    <div class="section-title">Einkauf nachtragen</div>
     <div class="card tight">
-      <div class="small muted" style="margin-bottom:10px">Etwas geliefert bekommen, das nicht auf der
-        Liste stand? Hier direkt einbuchen – nur so bleibt der Verbrauch korrekt.</div>
-      <button class="btn block" id="buyOpen">Nachkauf erfassen</button>
+      <div class="small muted" style="margin-bottom:10px">Etwas mitgebracht, das nicht auf der Liste
+        stand? Hier direkt einbuchen – nur so bleibt der Verbrauch korrekt.</div>
+      <button class="btn block" id="buyOpen">Einkauf eintragen</button>
     </div>
 
     <div class="section-title">Letzte Nachkäufe</div>
@@ -769,6 +778,20 @@ const store = {
     }
     rows.forEach(r => this[coll].push(Object.assign({ id: uid() }, r)));
     this._sortLocal(); this._saveLocal(); this.emit();
+  },
+  /* Schreiben unter fester Kennung. Für die Einkaufsliste wichtig: ein
+     Getränk steht dort höchstens einmal, egal wie oft getippt wird. */
+  async set(coll, id, data){
+    if (this.mode === "firebase"){
+      const f = this._fs;
+      await f.setDoc(f.doc(this._db, ...this.path(coll), id), data);
+      return id;
+    }
+    const row = this[coll].find(r => r.id === id);
+    if (row) Object.assign(row, data);
+    else this[coll].push(Object.assign({ id }, data));
+    this._sortLocal(); this._saveLocal(); this.emit();
+    return id;
   },
   async update(coll, id, data){
     if (this.mode === "firebase"){
@@ -1160,7 +1183,7 @@ function padHintHtml(d, st){
   const diff = Math.round((before - v) * 100) / 100;
   if (diff < -0.0001)
     return '<div class="padhint warn">Der Bestand wäre um <b>' + fmt(-diff) +
-      '</b> gestiegen – fehlt eine Lieferung?</div>';
+      '</b> gestiegen – fehlt ein Einkauf?</div>';
 
   const days = num(a.daysSinceCount, 0);
   let t = 'das wären <b>' + esc(qtyUnit(diff, unitOf(d))) + '</b> verbraucht';
@@ -1248,12 +1271,14 @@ function qtySheet(opts){
     '<div id="padBody" style="margin-top:14px">' + padHtml(d, st) + '</div>' +
     '<div class="btn-grid" style="margin-top:12px">' +
       '<button class="btn ghost" data-act="cancel">Abbrechen</button>' +
-      '<button class="btn primary" data-act="ok">' + esc(opts.okLabel || "Übernehmen") + '</button></div>',
+      '<button class="btn primary" data-act="ok">' + esc(opts.okLabel || "Übernehmen") + '</button></div>' +
+    (opts.footHtml || ""),
     el => {
       el.addEventListener("click", e => {
         const b = e.target.closest("button");
         if (b && b.dataset.act === "cancel"){ closeSheet(); return; }
         if (b && b.dataset.act === "ok"){ closeSheet(); opts.onOk(padValue(d, st), st.touched); return; }
+        if (b && b.dataset.act === "extra"){ closeSheet(); if (opts.onExtra) opts.onExtra(); return; }
         if (padClick(e, d, st)) $("#padBody", el).innerHTML = padHtml(d, st);
       });
     });
@@ -1474,7 +1499,7 @@ function renderRound(){
   const id = round.order[round.idx], d = drinkById(id), a = analyze(id), st = roundState();
   const last = a.lastCount
     ? "zuletzt " + qtyText(num(a.lastCount.qty), d, true) + " · " + relDays(a.lastCount.at) +
-      (a.boughtAfter ? " · seitdem +" + qtyText(a.boughtAfter, d) + " geliefert" : "")
+      (a.boughtAfter ? " · seitdem +" + qtyText(a.boughtAfter, d) + " gekauft" : "")
     : "noch nie gezählt";
 
   zone.innerHTML = bar +
@@ -1616,13 +1641,13 @@ function renderCount(){
       const val = has ? pending.get(d.id) : a.stock;
 
       /* Zeile zeigt den Bestand von jetzt: letzte Zählung plus alles, was
-         seitdem geliefert wurde. Eine noch nicht gespeicherte Zählung
+         seitdem dazugekauft wurde. Eine noch nicht gespeicherte Zählung
          verdrängt ihn, damit klar ist, was gleich gespeichert wird. */
       let meta;
       if (has) meta = "neu gezählt · noch nicht gespeichert";
       else if (a.lastCount) meta = [
         "gezählt " + relDays(a.lastCount.at),
-        a.boughtAfter ? "+" + qtyText(a.boughtAfter, d) + " geliefert" : null,
+        a.boughtAfter ? "+" + qtyText(a.boughtAfter, d) + " gekauft" : null,
         a.ok ? "Ø " + fmt(a.perDay, 2) + "/Tag" : null,
         d.category || null            /* zuletzt: schneidet auf schmalen Geräten zuerst ab */
       ].filter(Boolean).join(" · ");
@@ -1703,7 +1728,7 @@ async function saveCounts(){
      "letzte Zählung" die gerade gespeicherte. */
   const summary = entries.map(e => {
     const a = analyze(e.drinkId), d = a.drink;
-    const before = a.stock;                       // Bestand laut letzter Zählung + Lieferungen
+    const before = a.stock;                       // Bestand laut letzter Zählung + Einkäufe
     const consumed = before == null ? null : Math.round((before - e.qty) * 100) / 100;
     return { d, before, bought: a.boughtAfter || 0, now: e.qty, consumed,
              days: a.lastCount ? a.daysSinceCount : null,
@@ -1744,10 +1769,10 @@ function showSummary(rows, at, session){
     if (r.first){ val = "–"; sub = "erste Zählung"; }
     else if (r.anomaly){
       val = "+" + fmt(-r.consumed);
-      sub = "Bestand gestiegen – fehlt eine Lieferung?";
+      sub = "Bestand gestiegen – fehlt ein Einkauf?";
     } else {
       val = fmt(r.consumed);
-      sub = "vorher " + qtyText(r.before, r.d) + (r.bought ? " (inkl. +" + fmt(r.bought) + " Lieferung)" : "") +
+      sub = "vorher " + qtyText(r.before, r.d) + (r.bought ? " (inkl. +" + fmt(r.bought) + " gekauft)" : "") +
             " → jetzt " + qtyText(r.now, r.d);
     }
     return '<div class="sum-row"><div class="s-main">' +
@@ -1768,7 +1793,7 @@ function showSummary(rows, at, session){
     '</div>' +
     (anomalies.length
       ? '<div class="banner"><div>Bei ' + anomalies.length + ' Getränk(en) ist der Bestand <b>gestiegen</b>, ' +
-        'ohne dass eine Lieferung erfasst wurde. Unter <b>Einkauf → Nachkauf erfassen</b> nachtragen, ' +
+        'ohne dass ein Einkauf erfasst wurde. Unter <b>Einkauf → Einkauf nachtragen</b> eintragen, ' +
         'sonst fehlt dieser Abschnitt im Ø-Verbrauch.</div></div>'
       : "") +
     (firsts
@@ -1806,55 +1831,93 @@ function showSummary(rows, at, session){
    verschwindet von selbst. Ein automatischer Vorschlag lässt sich auch
    wegwischen; er bleibt dann bis zur nächsten Zählung fort.
    --------------------------------------------------------------------- */
+/* Feste Dokument-Kennungen: ein Getränk steht höchstens einmal auf der Liste
+   und ist höchstens einmal ausgeblendet – egal wie hektisch getippt wird. */
+function shopKey(drinkId){ return "d_" + drinkId; }
+function skipKey(drinkId){ return "s_" + drinkId; }
+
 function shopModel(){
-  const skip = {}; const manual = [];
+  const skip = {}, byDrink = {}, notes = [];
   store.shopping.forEach(r => {
     if (r.kind === "skip"){ if (r.drinkId) skip[r.drinkId] = String(r.at || ""); return; }
-    manual.push(r);
+    if (!r.drinkId){ notes.push(r); return; }
+    if (!byDrink[r.drinkId]) byDrink[r.drinkId] = r;   // Altlasten aus doppelten Einträgen
   });
-  const onList = {};
-  manual.forEach(m => { if (m.drinkId) onList[m.drinkId] = true; });
 
-  const auto = alerts().filter(x => {
-    const id = x.a.drink.id;
-    if (onList[id]) return false;
-    const sk = skip[id];
-    if (!sk) return true;
-    const lc = x.a.lastCount;                       // nach einer neuen Zählung wieder zeigen
-    return lc ? String(lc.at) > sk : false;
-  }).map(x => ({
-    key: "auto:" + x.a.drink.id, auto: true, drink: x.a.drink, a: x.a,
-    level: x.level, name: x.a.drink.name, qty: suggestBuy(x.a), sub: x.sub
+  const out = [], used = {};
+
+  /* Reihenfolge richtet sich nach der Dringlichkeit – und bleibt gleich,
+     wenn eine Position durch eine geänderte Menge auf die Liste wandert.
+     Sonst springt die Zeile unter dem Finger weg. */
+  alerts().forEach(x => {
+    const d = x.a.drink, m = byDrink[d.id];
+    if (!m){
+      const sk = skip[d.id], lc = x.a.lastCount;
+      if (sk && !(lc && String(lc.at) > sk)) return;     // ausgeblendet bis zur nächsten Zählung
+    }
+    used[d.id] = true;
+    out.push({
+      key: m ? m.id : ("auto:" + d.id), auto: !m, row: m || null, drink: d, a: x.a,
+      level: x.level, name: d.name,
+      qty: (m && num(m.qty, 0) > 0) ? num(m.qty) : suggestBuy(x.a),
+      sub: [x.sub, m && m.note ? m.note : null].filter(Boolean).join(" · ")
+    });
+  });
+
+  /* Selbst gesetzte Positionen, die (noch) nicht knapp sind */
+  Object.keys(byDrink).forEach(id => {
+    if (used[id]) return;
+    const d = drinkById(id); if (!d) return;
+    const m = byDrink[id], a = analyze(id);
+    out.push({
+      key: m.id, auto: false, row: m, drink: d, a, level: "warn", name: d.name,
+      qty: (num(m.qty, 0) > 0) ? num(m.qty) : suggestBuy(a),
+      sub: [a.stock != null ? "Bestand " + qtyText(a.stock, d, true) : "nie gezählt",
+            m.note || null, "selbst hinzugefügt"].filter(Boolean).join(" · ")
+    });
+  });
+
+  /* Freie Notizen zum Schluss */
+  notes.forEach(m => out.push({
+    key: m.id, auto: false, row: m, drink: null, a: null, level: "warn",
+    name: m.name || "Position", qty: 0,
+    sub: [m.note || null, "selbst hinzugefügt"].filter(Boolean).join(" · ")
   }));
 
-  const own = manual.map(m => {
-    const d = m.drinkId ? drinkById(m.drinkId) : null;
-    const a = d ? analyze(d.id) : null;
-    return {
-      key: m.id, auto: false, row: m, drink: d, a, level: "warn",
-      name: d ? d.name : (m.name || "Position"),
-      qty: num(m.qty, 0) || (a ? suggestBuy(a) : 0),
-      sub: [m.note, d && a && a.stock != null ? "Bestand " + qtyText(a.stock, d, true) : null,
-            "selbst hinzugefügt"].filter(Boolean).join(" · ")
-    };
-  });
-  return own.concat(auto);
+  return out;
 }
+
+/* Schrittweite: ein ganzer Kasten, wo es einen gibt – sonst eine Einheit */
+function shopStep(d){ return packSize(d) || 1; }
 
 function renderShop(){
   const items = shopModel();
   const host = $("#shopList");
   host.innerHTML = items.length ? items.map(it => {
     const d = it.drink;
-    const qtyTxt = (d && it.qty > 0)
-      ? '<div class="b-qty"><b>' + esc(qtyText(it.qty, d)) + '</b><span>kaufen</span></div>'
+    const ps = d ? packSize(d) : 0;
+
+    /* Mengenspalte: direkt in Kästen änderbar. Die Zahl selbst öffnet den
+       Zahlenblock für krumme Mengen. */
+    const step = d
+      ? '<div class="b-step">' +
+          '<button class="b-pm" data-act="minus" aria-label="weniger">&minus;</button>' +
+          '<button class="b-val" data-act="pad">' +
+            '<b>' + esc(qtyText(it.qty, d)) + '</b>' +
+            '<span>' + (ps
+              ? esc(qtyUnit(it.qty, unitOf(d)))
+              : "je Schritt 1 " + esc(SINGULAR[unitOf(d)] || unitOf(d))) + '</span>' +
+          '</button>' +
+          '<button class="b-pm" data-act="plus" aria-label="mehr">+</button>' +
+        '</div>'
       : "";
+
     return '<div class="buyrow' + (it.level === "crit" ? " crit" : "") + '" data-key="' + esc(it.key) + '">' +
       '<button class="b-check" data-act="buy" title="Gekauft">&#10003;</button>' +
       '<div class="b-main"><div class="b-name">' + esc(it.name) +
         (it.auto ? "" : ' <span class="badge">Liste</span>') + '</div>' +
-        '<div class="b-sub">' + esc(it.sub) + '</div></div>' +
-      qtyTxt +
+        '<div class="b-sub">' + esc(it.sub) + (d && !ps ? " · kein Gebinde hinterlegt" : "") + '</div>' +
+        step + '</div>' +
       '<button class="b-x" data-act="drop" title="Von der Liste nehmen">&#10005;</button>' +
     '</div>';
   }).join("") : '<div class="empty">Nichts zu kaufen.<br>Getränke erscheinen hier automatisch, sobald ' +
@@ -1871,41 +1934,95 @@ function renderShop(){
   }).join("") : '<div class="empty">Noch keine Nachkäufe erfasst.</div>';
 }
 
+/* Menge einer Position setzen. Ein automatischer Vorschlag, an dem gedreht
+   wird, wandert dabei fest auf die Liste – sonst wäre die Änderung beim
+   nächsten Nachrechnen wieder weg. */
+async function shopWrite(d, data){
+  await store.set("shopping", shopKey(d.id), data);
+  /* Ältere Einträge desselben Getränks mit zufälliger Kennung aufräumen –
+     sonst stünde es nach dem ersten Ändern doppelt auf der Liste. */
+  const alt = store.shopping.filter(r => r.kind !== "skip" && r.drinkId === d.id && r.id !== shopKey(d.id));
+  for (const r of alt) await store.remove("shopping", r.id);
+}
+async function shopDrop(d, row){
+  const ids = {};
+  if (row) ids[row.id] = true;
+  ids[shopKey(d.id)] = true;
+  for (const id of Object.keys(ids)) await store.remove("shopping", id);
+}
+
+async function shopSetQty(it, qty){
+  const d = it.drink; if (!d) return;
+  const v = Math.max(0, Math.round(num(qty) * 100) / 100);
+  if (v <= 0){
+    if (!it.auto) await shopDrop(d, it.row);
+    toast("Von der Liste genommen");
+    renderAll(); return;
+  }
+  await shopWrite(d, {
+    kind: "item", drinkId: d.id, name: "", qty: v,
+    note: (it.row && it.row.note) || "",
+    at: (it.row && it.row.at) || new Date().toISOString()
+  });
+  renderAll();
+}
+
 $("#shopList").addEventListener("click", async e => {
   const b = e.target.closest("[data-act]"); if (!b) return;
   const row = e.target.closest("[data-key]"); if (!row) return;
-  const key = row.dataset.key;
-  const it = shopModel().find(x => x.key === key); if (!it) return;
+  const it = shopModel().find(x => x.key === row.dataset.key); if (!it) return;
+  const act = b.dataset.act;
+  const d = it.drink;
 
-  if (b.dataset.act === "drop"){
+  if (act === "minus"){ await shopSetQty(it, it.qty - shopStep(d)); return; }
+  if (act === "plus"){ await shopSetQty(it, it.qty + shopStep(d)); return; }
+
+  if (act === "pad"){
+    qtySheet({
+      title: d.name,
+      sub: "Wie viel soll gekauft werden?",
+      drink: d, value: it.qty || "", okLabel: "Übernehmen",
+      footHtml: packSize(d) ? "" :
+        '<button class="btn ghost block" data-act="extra" style="margin-top:10px">' +
+        'Kastengröße festlegen</button>' +
+        '<div class="tiny faint" style="text-align:center;margin-top:7px">' +
+        'Ohne Kastengröße lässt sich nur in ' + esc(unitOf(d)) + ' rechnen.</div>',
+      onExtra: () => drinkForm(d),
+      onOk: (v, entered) => { if (entered) shopSetQty(it, v); }
+    });
+    return;
+  }
+
+  if (act === "drop"){
     if (it.auto){
-      await store.add("shopping", { kind:"skip", drinkId: it.drink.id, name:"", qty:0, note:"",
-                                    at: new Date().toISOString() });
+      await store.set("shopping", skipKey(d.id), { kind:"skip", drinkId: d.id, name:"", qty:0,
+                                                   note:"", at: new Date().toISOString() });
       toast("Ausgeblendet bis zur nächsten Zählung");
     } else {
-      await store.remove("shopping", it.row.id);
+      await shopDrop(d, it.row);
       toast("Von der Liste genommen");
     }
     renderAll(); return;
   }
 
-  if (b.dataset.act === "buy"){
-    if (!it.drink){                       // freie Notiz: nur abhaken, nichts zu buchen
+  if (act === "buy"){
+    if (!d){                              // freie Notiz: nur abhaken, nichts zu buchen
       await store.remove("shopping", it.row.id);
       toast("Erledigt"); renderAll(); return;
     }
     qtySheet({
-      title: "Gekauft: " + it.drink.name,
+      title: "Gekauft: " + d.name,
       sub: "Wird als Nachkauf gebucht – dadurch bleibt der Verbrauch korrekt.",
-      drink: it.drink, value: it.qty || "", okLabel: "Einbuchen",
+      drink: d, value: it.qty || "", okLabel: "Einbuchen",
+      addTo: analyze(d.id).stock == null ? 0 : num(analyze(d.id).stock),
       onOk: async (v) => {
         if (!(v > 0)) return toast("Menge fehlt");
-        const sp = splitPack(v, it.drink);
-        await store.add("purchases", { drinkId: it.drink.id, qty: v,
+        const sp = splitPack(v, d);
+        await store.add("purchases", { drinkId: d.id, qty: v,
           packs: sp ? sp.packs : 0, singles: sp ? sp.rest : v,
           at: new Date().toISOString(), note: "über die Einkaufsliste" });
-        if (!it.auto) await store.remove("shopping", it.row.id);
-        toast("+" + qtyText(v, it.drink) + " eingebucht");
+        if (!it.auto) await shopDrop(d, it.row);
+        toast("+" + qtyText(v, d) + " eingebucht");
         renderAll();
       }
     });
@@ -1949,17 +2066,19 @@ $("#shopAdd").addEventListener("click", () => {
         const d = drinkById(sel.value);
         const name = d ? "" : $("#sName", el).value.trim();
         if (!d && !name) return toast("Bitte ein Getränk wählen oder etwas eintragen");
-        await store.add("shopping", {
+        const data = {
           kind: "item", drinkId: d ? d.id : "", name,
           qty: d ? suggestBuy(analyze(d.id)) : 0,
           note: $("#sNote", el).value.trim(), at: new Date().toISOString()
-        });
+        };
+        if (d) await shopWrite(d, data);
+        else await store.add("shopping", data);
         closeSheet(); toast("Auf der Liste"); renderAll();
       };
     });
 });
 
-/* Lieferung erfassen, die nicht über die Liste lief */
+/* Einkauf nachtragen, der nicht über die Liste lief */
 $("#buyOpen").addEventListener("click", () => {
   if (!store.drinks.length) return toast("Bitte zuerst ein Getränk anlegen");
   const state = { drinkId: store.drinks[0].id, st: null };
@@ -1971,8 +2090,8 @@ $("#buyOpen").addEventListener("click", () => {
     return padHtml(d, state.st);
   };
   sheet(
-    '<h3>Nachkauf erfassen</h3>' +
-    '<div class="small muted">Lieferungen müssen erfasst werden – sonst sieht es aus, als wäre weniger verbraucht worden.</div>' +
+    '<h3>Einkauf nachtragen</h3>' +
+    '<div class="small muted">Jeder Einkauf muss erfasst werden – sonst sieht es aus, als wäre weniger verbraucht worden.</div>' +
     '<div style="margin-top:14px">' +
     '<label class="fld"><span>Getränk</span><select id="pDrink">' +
       store.drinks.map(d => '<option value="' + esc(d.id) + '">' + esc(d.name) +
@@ -2321,7 +2440,7 @@ function renderSegments(){
   const anomalyHint = a.anomalies
     ? '<div class="banner" style="margin-top:8px"><div>' + a.anomalies +
       ' Abschnitt(e) mit gestiegenem Bestand ohne erfassten Nachkauf. Diese fließen nicht in den Ø-Verbrauch ein – ' +
-      'fehlende Lieferung unter <b>Nachkauf</b> nachtragen.</div></div>'
+      'fehlenden Einkauf unter <b>Einkauf</b> nachtragen.</div></div>'
     : "";
 
   host.innerHTML = head + anomalyHint + rows;

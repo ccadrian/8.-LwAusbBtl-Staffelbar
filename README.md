@@ -20,15 +20,15 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 
 | Bereich | Funktion |
 |---|---|
-| **Startseite** | Zeigt den **aktuellen Bestand** aller Getränke auf einen Blick – letzte Zählung plus alles, was seitdem geliefert wurde – mit Reichweite in Tagen und Dringlichkeitsmarkierung. Antippen zählt dieses eine Getränk nach. Darüber drei Kennzahlen: Anzahl Getränke, wie viele knapp werden, wann zuletzt gezählt wurde. |
+| **Startseite** | Zeigt den **aktuellen Bestand** aller Getränke auf einen Blick – letzte Zählung plus alles, was seitdem dazugekauft wurde – mit Reichweite in Tagen und Dringlichkeitsmarkierung. Antippen zählt dieses eine Getränk nach. Darüber drei Kennzahlen: Anzahl Getränke, wie viele knapp werden, wann zuletzt gezählt wurde. |
 | **Zählrunde** | Geführt, ein Getränk nach dem anderen, nach Kategorie sortiert, mit Fortschrittsanzeige. Der Zahlenblock steht direkt darunter – kein Suchen in langen Listen. Überspringen ist erlaubt, die Übersicht zeigt jederzeit, was schon gezählt ist und was fehlt. Wahlweise nur eine Kategorie oder **nur das, was knapp wird**. |
 | **Kontrolle beim Tippen** | Schon während der Eingabe steht darunter, was die Zahl bedeutet: „das wären 12 Flaschen verbraucht in 7 Tagen · Ø 1,7/Tag“. Steigt der Bestand oder liegt der Verbrauch um ein Vielfaches über dem Schnitt, wird deutlich gewarnt – ein Vertipper fällt auf, solange er noch zu ändern ist. |
 | **Unterbrechbar** | Eine angefangene Runde übersteht das Schließen der Seite: Position und erfasste Mengen sind beim nächsten Öffnen wieder da (bis zu zwei Tage). |
 | **Zurücknehmen** | Eine gerade gespeicherte Zählung lässt sich rückgängig machen. Die Mengen bleiben dabei als ungespeicherte Zählung stehen, sodass sich ein Fehler korrigieren lässt, ohne noch einmal durch die ganze Bar zu laufen. |
 | **Kästen** | Pro Getränk lässt sich eine Gebindegröße hinterlegen (1 Kasten = 20 Flaschen). Gezählt wird dann in **Kästen + einzelne Flaschen**, das Tool rechnet um. Gespeichert und gerechnet wird immer in Einzelflaschen. |
 | **Zusammenfassung** | Direkt nach dem Speichern: was sich verändert hat, was verbraucht wurde, wo der Bestand gestiegen ist – ohne selbst zu rechnen. |
-| **Einkaufsliste** | Füllt sich von selbst aus Warnschwelle und Vorhersage, mit Mengenvorschlag in vollen Kästen. Eigene Positionen (auch freie Notizen wie „Eis“) lassen sich ergänzen. Abhaken bucht den Kauf als Nachkauf – die Position verschwindet dadurch von allein. |
-| **Nachkauf** | Lieferungen separat erfassen, damit der Verbrauch korrekt bleibt (ein Nachkauf ist kein Verbrauch). |
+| **Einkaufsliste** | Füllt sich von selbst aus Warnschwelle und Vorhersage, mit Mengenvorschlag in vollen Kästen. Die Menge lässt sich direkt in der Zeile ändern – **ein Schritt ist ein Kasten**, die Zahl selbst öffnet den Zahlenblock für krumme Mengen. Eigene Positionen (auch freie Notizen wie „Eis“) lassen sich ergänzen. Abhaken bucht den Kauf als Nachkauf – die Position verschwindet dadurch von allein. |
+| **Nachkauf** | Jeden Einkauf separat erfassen, damit der Verbrauch korrekt bleibt (ein Nachkauf ist kein Verbrauch). Geliefert wird nichts – die Kästen werden selbst vom Getränkemarkt geholt und hier eingebucht. |
 | **Statistik** | Verbrauch zwischen zwei Zählungen, Ranking der beliebtesten Getränke, Verlaufsdiagramm pro Getränk, Filter nach Kategorie und Zeitraum. Mengen wahlweise einzeln oder in Gebinden. |
 | **Vorhersage** | Ø-Verbrauch pro Tag/Woche und Hochrechnung, wann ein Getränk leer ist – **nur wenn die Datenlage das hergibt** (siehe unten). |
 | **Erinnerung** | „Bald nachkaufen“ steht ganz oben auf der Startseite, sortiert nach Dringlichkeit. |
@@ -128,7 +128,7 @@ Zwischen zwei Zählungen gilt:
 Verbrauch = Bestand(alt) + Nachkäufe dazwischen − Bestand(neu)
 ```
 
-Deshalb müssen Lieferungen als **Nachkauf** erfasst werden – sonst sieht es aus,
+Deshalb muss jeder Einkauf als **Nachkauf** erfasst werden – sonst sieht es aus,
 als wäre weniger verbraucht worden. Steigt der Bestand ohne erfassten Nachkauf,
 markiert das Tool den Abschnitt und lässt ihn aus dem Durchschnitt heraus,
 statt die Zahlen stillschweigend zu verfälschen.

@@ -9,6 +9,15 @@
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <title>Staffelbar · Bestand</title>
+<!-- Als App installierbar: Manifest fuer Android/Chrome, die apple-Zeilen
+     fuer iPhone (das liest das Manifest nur zum Teil). -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Staffelbar">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <script>
 /* Laeuft vor dem ersten Zeichnen: sonst blitzt kurz die falsche Helligkeit
    auf, bevor das Hauptskript am Seitenende ueberhaupt geladen ist. */
@@ -123,6 +132,10 @@ header.top{
   border-bottom:1px solid var(--line);
 }
 .top-in{max-width:640px;margin:0 auto;padding:12px 18px;display:flex;align-items:center;gap:12px}
+/* Als installierte App liegt der Inhalt unter der Statusleiste des Telefons */
+header.top{padding-top:env(safe-area-inset-top,0px)}
+.lock{padding-top:calc(24px + env(safe-area-inset-top,0px))}
+.scan{padding-top:calc(10px + env(safe-area-inset-top,0px))}
 .brand{font-size:18px;font-weight:640;letter-spacing:-.026em;flex:1;min-width:0;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .brand small{display:block;font-size:13px;font-weight:400;color:var(--fg-faint);
@@ -719,6 +732,9 @@ details.fold .fold-in{padding:0 18px 18px}
       </div>
       <button class="btn ghost block hide" id="pinClear" style="margin-top:10px">Code entfernen</button>
     </div>
+
+    <div class="section-title">Als App aufs Handy</div>
+    <div class="card" id="installCard"></div>
 
     <div class="section-title">QR-Code für den Tresen</div>
     <div class="card">
@@ -1529,6 +1545,56 @@ function assignCodeSheet(code, onDrink){
         onDrink(Object.assign({}, d, { ean: code }));
       });
     });
+}
+
+/* ---------------------------------------------------------------------
+   3e) Als App installieren
+   Android/Chrome meldet sich mit beforeinstallprompt – dann gibt es einen
+   echten Knopf. iPhone kennt keinen Knopf; da bleibt nur der Weg über das
+   Teilen-Menü, und den schreiben wir hin.
+   --------------------------------------------------------------------- */
+let installPrompt = null;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault(); installPrompt = e;
+  if (view === "more") renderInstall();
+});
+window.addEventListener("appinstalled", () => { installPrompt = null; renderInstall(); toast("Installiert"); });
+function isStandalone(){
+  return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+}
+function renderInstall(){
+  const box = $("#installCard"); if (!box) return;
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (isStandalone()){
+    box.innerHTML = '<div class="row" style="gap:12px"><div style="flex:1">' +
+      '<div style="font-weight:600">Läuft als App</div>' +
+      '<div class="small faint" style="margin-top:3px">Eigenes Icon, kein Browser drumherum.</div></div>' +
+      '<span class="badge">&#10003;</span></div>';
+    return;
+  }
+  if (installPrompt){
+    box.innerHTML = '<div class="small muted" style="margin-bottom:12px">Eigenes Icon auf dem Startbildschirm, ' +
+      'öffnet im Vollbild ohne Browserleiste.</div>' +
+      '<button class="btn primary block" id="installBtn">Als App installieren</button>';
+    $("#installBtn").onclick = async () => {
+      const p = installPrompt; installPrompt = null;
+      try { p.prompt(); await p.userChoice; } catch(_){}
+      renderInstall();
+    };
+    return;
+  }
+  box.innerHTML = '<div class="small muted">Eigenes Icon auf dem Startbildschirm, öffnet im Vollbild ' +
+    'ohne Browserleiste. So geht es:</div>' +
+    '<ol class="small" style="margin:10px 0 0;padding-left:20px;line-height:1.7">' +
+    (ios
+      ? '<li>Unten in Safari auf <b>Teilen</b> tippen (das Quadrat mit dem Pfeil nach oben)</li>' +
+        '<li><b>Zum Home-Bildschirm</b> wählen</li><li>Oben rechts <b>Hinzufügen</b></li>'
+      : '<li>Oben rechts im Browser auf <b>⋮</b> tippen</li>' +
+        '<li><b>App installieren</b> oder <b>Zum Startbildschirm hinzufügen</b> wählen</li>') +
+    '</ol>' +
+    (!ios && !/Chrome|CriOS/.test(navigator.userAgent)
+      ? '<div class="tiny faint" style="margin-top:10px">Am einfachsten klappt das mit Chrome.</div>' : '');
 }
 
 /* Helligkeit: Wahl des Geräts, nicht der Bar – deshalb nur lokal. */
@@ -4176,6 +4242,7 @@ function renderMore(){
   if (document.activeElement !== $("#cfgWarnDays")) $("#cfgWarnDays").value = settings.warnDays;
   if (document.activeElement !== $("#cfgMinPacks")) $("#cfgMinPacks").value = settings.minPacks;
   $("#cfgPacks").checked = !!settings.showPacks;
+  renderInstall();
   const th = currentTheme();
   $$("#cfgTheme button").forEach(b => b.classList.toggle("on", b.dataset.theme === th));
 

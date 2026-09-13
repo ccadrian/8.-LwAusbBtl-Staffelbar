@@ -423,6 +423,23 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:50;
 .tab.on{color:var(--fg);background:var(--card-2)}
 .tab.on svg{stroke-width:2}
 
+/* ---------- Barcode-Scanner ---------- */
+.scan{position:fixed;inset:0;z-index:320;background:#000;color:#fff;display:flex;flex-direction:column;
+  padding:calc(10px + env(safe-area-inset-top,0px)) 16px calc(12px + var(--safe-b))}
+.scan-top{display:flex;align-items:center;gap:10px;flex:none;padding-bottom:10px}
+.scan-title{flex:1;font-size:18px;font-weight:640;letter-spacing:-.02em}
+.scan-x{width:42px;height:42px;border-radius:13px;border:1px solid rgba(255,255,255,.35);color:#fff;
+  display:grid;place-items:center;font-size:17px}
+.scan-view{flex:1;min-height:0;position:relative;border-radius:var(--r);overflow:hidden;background:#111}
+.scan-view video{width:100%;height:100%;object-fit:cover;display:block}
+.scan-guide{position:absolute;left:8%;right:8%;top:50%;height:34%;transform:translateY(-50%);
+  border:2px solid rgba(255,255,255,.9);border-radius:14px;
+  box-shadow:0 0 0 2000px rgba(0,0,0,.45)}
+.scan-guide::after{content:"";position:absolute;left:6%;right:6%;top:50%;height:2px;background:rgba(255,80,80,.85)}
+.scan-msg{flex:none;text-align:center;font-size:15px;padding:14px 8px 6px;color:rgba(255,255,255,.85);min-height:44px}
+.scan-foot{flex:none}
+.scan-foot .btn{border-color:rgba(255,255,255,.35);color:#fff}
+
 /* ---------- Sperrbildschirm ---------- */
 .lock{position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;
   align-items:center;justify-content:center;padding:24px}
@@ -599,7 +616,10 @@ details.fold .fold-in{padding:0 18px 18px}
       <div class="card" id="roundStart"></div>
 
       <div class="section-title" id="stockTitle">Was gerade da ist</div>
-      <input type="text" id="countSearch" placeholder="Getränk suchen…" autocomplete="off">
+      <div class="row" style="gap:10px;margin-bottom:2px">
+        <input type="text" id="countSearch" placeholder="Getränk suchen…" autocomplete="off" style="flex:1;min-width:0">
+        <button class="icon-btn" id="countScan" title="Barcode scannen" aria-label="Barcode scannen" style="width:52px;height:52px"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3"/><path d="M7 8v8M10 8v8M13 8v8M17 8v8"/></svg></button>
+      </div>
       <div class="chips" id="countCats"></div>
       <div id="countList"></div>
       <div class="tiny faint" style="text-align:center;padding:4px 0 10px" id="stockFoot"></div>
@@ -608,6 +628,9 @@ details.fold .fold-in{padding:0 18px 18px}
 
   <!-- ============ EINKAUF ============ -->
   <section class="view hide" id="v-shop">
+    <div class="section-title">Zum Markt mitnehmen</div>
+    <div class="card tight" id="emptiesCard"></div>
+
     <div class="section-title">Was gekauft werden muss</div>
     <div id="shopList"></div>
     <button class="btn block" id="shopAdd" style="margin-top:2px">+ Position hinzufügen</button>
@@ -1178,6 +1201,274 @@ async function logActivity(action, detail){
   } catch(err){ console.error("Protokoll", err); }
 }
 
+/* ---------------------------------------------------------------------
+   3d) Barcode-Scanner (EAN-13 / EAN-8), ohne fremde Bibliothek
+
+   Wo der Browser einen eingebauten Erkenner hat (Chrome/Android:
+   BarcodeDetector), wird der genommen – er ist robuster. Sonst liest der
+   Code hier selbst: Aus dem Kamerabild werden waagerechte Linien
+   genommen, in hell/dunkel zerlegt und die Strichbreiten mit den
+   EAN-Mustern verglichen.
+
+   Ein EAN-Strich-Muster besteht pro Ziffer aus vier Läufen (Lücke, Strich,
+   Lücke, Strich), zusammen sieben Module breit. Die rechte Hälfte benutzt
+   dieselben Breiten wie links, nur mit Strich zuerst; die "G"-Variante
+   links ist das gespiegelte L-Muster. Aus der Folge von L und G auf der
+   linken Seite ergibt sich die erste Ziffer.
+   --------------------------------------------------------------------- */
+const EAN_L = [[3,2,1,1],[2,2,2,1],[2,1,2,2],[1,4,1,1],[1,1,3,2],[1,2,3,1],[1,1,1,4],[1,3,1,2],[1,2,1,3],[3,1,1,2]];
+const EAN_PARITY = ["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG","LGGLLG","LGGGLL","LGLGLG","LGLGGL","LGGLGL"];
+
+/* vier Laufbreiten -> beste Ziffer; mirrored = G-Muster (gespiegelt) */
+function eanMatch(w, mirrored){
+  const sum = w[0] + w[1] + w[2] + w[3];
+  if (!(sum > 0)) return null;
+  const n = w.map(x => x * 7 / sum);
+  let best = -1, bestErr = 1e9;
+  for (let d = 0; d < 10; d++){
+    const p = mirrored ? EAN_L[d].slice().reverse() : EAN_L[d];
+    const err = Math.abs(n[0]-p[0]) + Math.abs(n[1]-p[1]) + Math.abs(n[2]-p[2]) + Math.abs(n[3]-p[3]);
+    if (err < bestErr){ bestErr = err; best = d; }
+  }
+  return bestErr <= 1.6 ? { d: best, err: bestErr } : null;
+}
+function eanChecksumOk(digits){
+  const n = digits.length;                       // 13 oder 8
+  let sum = 0;
+  for (let i = 0; i < n - 1; i++){
+    const w = (n === 13) ? ((i % 2 === 0) ? 1 : 3) : ((i % 2 === 0) ? 3 : 1);
+    sum += digits[i] * w;
+  }
+  return (10 - (sum % 10)) % 10 === digits[n - 1];
+}
+/* runs: [{dark, w}] – versucht an jeder plausiblen Startstelle zu lesen */
+function eanFromRuns(runs){
+  const tryAt = (i, n) => {                      // n = 13 oder 8 Ziffern
+    const left = n === 13 ? 6 : 4, right = left;
+    const need = 3 + left*4 + 5 + right*4 + 3;
+    if (i + need > runs.length) return null;
+    if (!runs[i].dark) return null;
+    /* Ruhezone davor: ein heller Lauf, mindestens so breit wie drei Module */
+    const g = (runs[i].w + runs[i+1].w + runs[i+2].w) / 3;
+    if (i > 0 && (runs[i-1].dark || runs[i-1].w < g * 3)) return null;
+    /* Startzeichen 1-1-1 */
+    for (let k = 0; k < 3; k++) if (Math.abs(runs[i+k].w - g) > g * 0.7) return null;
+    let p = i + 3;
+    const digits = []; let parity = "";
+    for (let k = 0; k < left; k++, p += 4){
+      const w = [runs[p].w, runs[p+1].w, runs[p+2].w, runs[p+3].w];
+      if (runs[p].dark) return null;
+      const a = eanMatch(w, false), b = eanMatch(w, true);
+      if (!a && !b) return null;
+      if (!b || (a && a.err <= b.err)){ digits.push(a.d); parity += "L"; }
+      else { digits.push(b.d); parity += "G"; }
+    }
+    /* Mittelzeichen 1-1-1-1-1 (hell zuerst) */
+    for (let k = 0; k < 5; k++) if (Math.abs(runs[p+k].w - g) > g * 0.8) return null;
+    if (runs[p].dark) return null;
+    p += 5;
+    for (let k = 0; k < right; k++, p += 4){
+      if (!runs[p].dark) return null;
+      const w = [runs[p].w, runs[p+1].w, runs[p+2].w, runs[p+3].w];
+      const a = eanMatch(w, false);
+      if (!a) return null;
+      digits.push(a.d);
+    }
+    /* Endzeichen 1-1-1 */
+    for (let k = 0; k < 3; k++) if (Math.abs(runs[p+k].w - g) > g * 0.8) return null;
+    if (n === 13){
+      const first = EAN_PARITY.indexOf(parity);
+      if (first < 0) return null;
+      digits.unshift(first);
+    } else if (parity !== "LLLL") return null;
+    return eanChecksumOk(digits) ? digits.join("") : null;
+  };
+  for (let i = 0; i < runs.length; i++){
+    const c = tryAt(i, 13) || tryAt(i, 8);
+    if (c) return c;
+  }
+  return null;
+}
+/* Eine Bildzeile in hell/dunkel-Läufe zerlegen (lokaler Schwellwert) */
+function lineRuns(gray, width){
+  const win = Math.max(8, Math.round(width / 12));
+  let acc = 0; const mean = new Float32Array(width);
+  for (let x = 0; x < width; x++){
+    acc += gray[x]; if (x >= win) acc -= gray[x - win];
+    mean[x] = acc / Math.min(x + 1, win);
+  }
+  /* mean laeuft nach – zentrieren, indem wir um win/2 versetzt lesen */
+  const runs = []; let cur = null;
+  for (let x = 0; x < width; x++){
+    const mx = mean[Math.min(width - 1, x + (win >> 1))];
+    const dark = gray[x] < mx - 12;
+    if (cur && cur.dark === dark) cur.w++;
+    else { cur = { dark, w: 1 }; runs.push(cur); }
+  }
+  return runs;
+}
+/* Ein Kamerabild absuchen: mehrere Zeilen, beide Richtungen */
+function eanFromCanvas(ctx, w, h){
+  const rows = [0.5, 0.42, 0.58, 0.34, 0.66, 0.26, 0.74];
+  for (const f of rows){
+    const y = Math.round(h * f);
+    const img = ctx.getImageData(0, y, w, 1).data;
+    const gray = new Float32Array(w);
+    for (let x = 0; x < w; x++){ const i = x * 4; gray[x] = 0.299*img[i] + 0.587*img[i+1] + 0.114*img[i+2]; }
+    const runs = lineRuns(gray, w);
+    if (runs.length < 43) continue;
+    const c = eanFromRuns(runs) || eanFromRuns(runs.slice().reverse());
+    if (c) return c;
+  }
+  return null;
+}
+
+/* Getränk zu einem Code */
+function drinkByEan(code){
+  const c = String(code || "").trim();
+  return c ? (store.drinks.find(d => d.ean && String(d.ean) === c) || null) : null;
+}
+
+/* Kamera-Dialog. Ruft onCode(code) auf und schließt sich; onCancel bei Abbruch. */
+let scanStream = null;
+function stopScan(){
+  if (scanStream){ scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  const el = $("#scanOverlay"); if (el) el.remove();
+  document.body.style.overflow = "";
+}
+async function scanSheet(onCode, opts){
+  opts = opts || {};
+  stopScan();
+  const box = document.createElement("div");
+  box.id = "scanOverlay"; box.className = "scan";
+  box.innerHTML =
+    '<div class="scan-top"><div class="scan-title">' + esc(opts.title || "Barcode scannen") + '</div>' +
+      '<button class="scan-x" data-act="cancel" aria-label="Abbrechen">&#10005;</button></div>' +
+    '<div class="scan-view"><video playsinline autoplay muted></video><div class="scan-guide"></div></div>' +
+    '<div class="scan-msg" id="scanMsg">Kamera wird gestartet…</div>' +
+    '<div class="scan-foot">' +
+      '<button class="btn ghost block" data-act="manual">Code von Hand eingeben</button>' +
+    '</div>';
+  document.body.appendChild(box);
+  document.body.style.overflow = "hidden";
+  const video = box.querySelector("video");
+  const msg = $("#scanMsg");
+  let done = false;
+  const finish = code => { if (done) return; done = true; stopScan(); onCode(String(code)); };
+
+  box.addEventListener("click", e => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    if (b.dataset.act === "cancel"){ done = true; stopScan(); if (opts.onCancel) opts.onCancel(); }
+    if (b.dataset.act === "manual"){
+      done = true; stopScan();
+      sheet('<h3>Barcode eingeben</h3><div style="margin-top:14px"><label class="fld"><span>Zahlen unter dem Strichcode</span>' +
+        '<input type="text" id="mEan" inputmode="numeric" autocomplete="off" placeholder="z. B. 4002103055150"></label></div>' +
+        '<div class="btn-grid"><button class="btn ghost" id="mNo">Abbrechen</button><button class="btn primary" id="mOk">Weiter</button></div>',
+        el => {
+          $("#mEan", el).focus();
+          $("#mNo", el).onclick = () => { closeSheet(); if (opts.onCancel) opts.onCancel(); };
+          $("#mOk", el).onclick = () => {
+            const v = $("#mEan", el).value.replace(/\D/g, "");
+            if (v.length < 8) return toast("Das ist kein vollständiger Code");
+            closeSheet(); onCode(v);
+          };
+        });
+    }
+  });
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    msg.textContent = "Dieser Browser kann die Kamera nicht öffnen – bitte den Code von Hand eingeben.";
+    return;
+  }
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    video.srcObject = scanStream;
+    await video.play();
+  } catch(err){
+    msg.textContent = "Kein Zugriff auf die Kamera (" + (err && err.name ? err.name : "abgelehnt") + "). " +
+      "In den Browser-Einstellungen erlauben – oder den Code von Hand eingeben.";
+    return;
+  }
+  msg.textContent = "Strichcode in den Rahmen halten";
+
+  /* Eingebauter Erkenner, wenn vorhanden */
+  let detector = null;
+  try {
+    if (window.BarcodeDetector){
+      const fmts = await BarcodeDetector.getSupportedFormats();
+      const want = ["ean_13","ean_8","upc_a","upc_e"].filter(f => fmts.includes(f));
+      if (want.length) detector = new BarcodeDetector({ formats: want });
+    }
+  } catch(_){ detector = null; }
+
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  let last = "", hits = 0;
+  const tick = async () => {
+    if (done) return;
+    try {
+      let code = null;
+      if (detector){
+        const found = await detector.detect(video);
+        if (found && found.length) code = found[0].rawValue;
+      } else if (video.videoWidth){
+        /* nur den Streifen in der Mitte lesen – da liegt der Rahmen */
+        const w = Math.min(960, video.videoWidth), scale = w / video.videoWidth;
+        const h = Math.round(video.videoHeight * scale);
+        canvas.width = w; canvas.height = h;
+        ctx.drawImage(video, 0, 0, w, h);
+        code = eanFromCanvas(ctx, w, h);
+      }
+      if (code){
+        if (code === last) hits++; else { last = code; hits = 1; }
+        msg.textContent = "Gelesen: " + code;
+        if (hits >= 2 || detector){ finish(code); return; }
+      }
+    } catch(_){}
+    setTimeout(tick, detector ? 150 : 90);
+  };
+  tick();
+}
+
+/* Gescannter Code: bekannt -> weiter mit dem Getränk; unbekannt -> einmal
+   zuordnen, danach ist er gespeichert und wird sofort erkannt. */
+function scanAndPick(onDrink, title){
+  scanSheet(code => {
+    const d = drinkByEan(code);
+    if (d){ onDrink(d); return; }
+    assignCodeSheet(code, onDrink);
+  }, { title: title || "Getränk scannen" });
+}
+function assignCodeSheet(code, onDrink){
+  sheet(
+    '<h3>Code noch unbekannt</h3>' +
+    '<div class="small muted" style="margin-top:5px">' + esc(code) + ' – zu welchem Getränk gehört er? ' +
+      'Einmal antippen, danach erkennt die App ihn von selbst.</div>' +
+    '<div style="margin-top:14px;max-height:46vh;overflow-y:auto">' +
+      (store.drinks.length
+        ? store.drinks.map(d => '<button class="tick" data-assign="' + esc(d.id) + '">' +
+            '<span class="t-name">' + esc(d.name) + '</span>' +
+            '<span class="t-val">' + (d.ean ? "hat schon einen Code" : "") + '</span></button>').join("")
+        : '<div class="empty">Noch keine Getränke angelegt.</div>') +
+    '</div>' +
+    '<button class="btn primary block" id="aNew" style="margin-top:12px">Neues Getränk mit diesem Code</button>' +
+    '<button class="btn ghost block" id="aNo" style="margin-top:10px">Abbrechen</button>',
+    el => {
+      $("#aNo", el).onclick = closeSheet;
+      $("#aNew", el).onclick = () => { closeSheet(); drinkForm(null, { ean: code, after: onDrink }); };
+      el.addEventListener("click", async e => {
+        const b = e.target.closest("[data-assign]"); if (!b) return;
+        const d = drinkById(b.dataset.assign); if (!d) return;
+        await store.update("drinks", d.id, { ean: code });
+        logActivity("Barcode zugeordnet", d.name + " ← " + code);
+        closeSheet(); toast("Code gespeichert für " + d.name);
+        renderAll();
+        onDrink(Object.assign({}, d, { ean: code }));
+      });
+    });
+}
+
 /* Helligkeit: Wahl des Geräts, nicht der Bar – deshalb nur lokal. */
 function currentTheme(){
   try { const t = localStorage.getItem(LS_THEME); return (t === "light" || t === "dark") ? t : "auto"; }
@@ -1228,6 +1519,9 @@ function activeFbConfig(){
      settings/thresholds { warnDays, minPacks, at }
                  Warnschwellen. Sie gehören der Bar, nicht dem Telefon –
                  sonst sähe jedes Gerät eine andere Erinnerung.
+     empties   { at, crates, bottles, session, by }
+                 Leergut: leere Kästen und lose leere Flaschen, jeweils
+                 der zuletzt gezählte Stand
      activity  { at, dev, name, action, detail }
                  Protokoll: welches Gerät hat was gemacht. Zählungen und
                  Einkäufe tragen zusätzlich by: { id, name }.
@@ -1238,7 +1532,7 @@ const store = {
   mode: "local",          // "firebase" | "local"
   status: "init",         // init | online | offline | error | local
   error: "",
-  drinks: [], counts: [], purchases: [], shopping: [], activity: [], config: null,
+  drinks: [], counts: [], purchases: [], shopping: [], activity: [], empties: [], config: null,
   _fs: null, _db: null, _unsub: [], _listeners: [], _cache: {}, _pending: {},
 
   /* noch nicht zum Server übertragene Änderungen */
@@ -1316,6 +1610,7 @@ const store = {
     bind("purchases", "purchases", "at", "desc", 2000);
     bind("shopping", "shopping", "at", "desc", 300);
     bind("activity", "activity", "at", "desc", 400);
+    bind("empties", "empties", "at", "desc", 200);
 
     /* Warnschwellen: ein einzelnes Dokument, ohne Sortierfeld */
     this._unsub.push(f.onSnapshot(this._col("settings"),
@@ -1414,20 +1709,22 @@ const store = {
     this.purchases = Array.isArray(d.purchases) ? d.purchases : [];
     this.shopping = Array.isArray(d.shopping) ? d.shopping : [];
     this.activity = Array.isArray(d.activity) ? d.activity : [];
+    this.empties = Array.isArray(d.empties) ? d.empties : [];
     this._sortLocal();
   },
   _saveLocal(){
     try {
       localStorage.setItem(this._lsKey(), JSON.stringify({
         drinks: this.drinks, counts: this.counts, purchases: this.purchases, shopping: this.shopping,
-        activity: this.activity.slice(0, 400)
+        activity: this.activity.slice(0, 400), empties: this.empties
       }));
     } catch(e){ toast("Speicher voll – Export anlegen!"); }
   },
   _sortLocal(){
     this.drinks.sort((a,b) => String(a.name||"").localeCompare(String(b.name||""), "de"));
     const desc = (a,b) => String(b.at||"").localeCompare(String(a.at||""));
-    this.counts.sort(desc); this.purchases.sort(desc); this.shopping.sort(desc); this.activity.sort(desc);
+    this.counts.sort(desc); this.purchases.sort(desc); this.shopping.sort(desc);
+    this.activity.sort(desc); this.empties.sort(desc);
   }
 };
 
@@ -1753,6 +2050,33 @@ function aggregateConsumption(days, category){
   return { rows, total, spanDays, perDay: spanDays >= FC_MIN_SPAN_DAYS ? total / spanDays : null };
 }
 
+/* Leergut: der zuletzt gezählte Stand an leeren Kästen und losen Flaschen */
+function lastEmpties(){ return store.empties.length ? store.empties[0] : null; }
+function emptiesText(e){
+  if (!e) return "";
+  const k = num(e.crates, 0), f = num(e.bottles, 0);
+  const t = [];
+  if (k) t.push(k + (k === 1 ? " leerer Kasten" : " leere Kästen"));
+  if (f) t.push(f + (f === 1 ? " lose Flasche" : " lose Flaschen"));
+  return t.length ? t.join(" + ") : "kein Leergut";
+}
+async function saveEmpties(crates, bottles, session){
+  await store.add("empties", { at: new Date().toISOString(), crates: num(crates, 0), bottles: num(bottles, 0),
+                               session: session || "", by: byStamp() });
+  logActivity("Leergut gezählt", emptiesText({ crates, bottles }));
+}
+/* Pad-Dialog fürs Leergut: Kästen und Flaschen bleiben getrennt –
+   25 lose Flaschen sind kein Kasten. */
+function emptiesSheet(preset, onOk){
+  qtySheet({
+    title: "Leergut", sub: "Leere Kästen und lose leere Flaschen – das geht zum Getränkemarkt mit.",
+    drink: { name: "Leergut", unit: "Flaschen", packSize: DEFAULT_PACK_SIZE, packName: "Kasten" },
+    parts: true, okLabel: "Übernehmen",
+    value: preset ? { packs: num(preset.crates, 0), singles: num(preset.bottles, 0) } : "",
+    onOk: (v, entered, st) => onOk(parseNum(st.packs || 0), parseNum(st.singles || 0))
+  });
+}
+
 /* Zählungen, gruppiert nach Zählrunde (gemeinsame session-Kennung) */
 function sessionList(){
   const map = {};
@@ -1860,7 +2184,12 @@ function padState(d, baseQty){
   /* ana   = Auswertung des Getränks, damit der Hinweis den Verbrauch zeigen kann
      addTo = aktueller Bestand, wenn die Menge dazukommt (Nachkauf) */
   const st = { packs:"", singles:"", field: packSize(d) ? "packs" : "singles",
-               touched:false, last:null, ana:null, addTo:null };
+               touched:false, last:null, ana:null, addTo:null, parts:false };
+  if (baseQty && typeof baseQty === "object"){          // getrennte Teile, z. B. Leergut
+    st.packs = String(num(baseQty.packs, 0)); st.singles = String(num(baseQty.singles, 0));
+    st.touched = true;
+    return st;
+  }
   if (baseQty != null && baseQty !== ""){
     const sp = splitPack(baseQty, d);
     if (sp){ st.packs = String(sp.packs); st.singles = String(sp.rest).replace(".", ","); }
@@ -1881,6 +2210,7 @@ function padHint(cls, html){
   return '<div class="padhint' + (cls ? " " + cls : "") + '"><span>' + html + '</span></div>';
 }
 function padHintHtml(d, st){
+  if (st.parts) return PAD_HINT_EMPTY;
   /* Solange nichts eingetippt ist, steht hier der Merksatz zum Kasten –
      so bleibt der reservierte Platz gefüllt statt als Loch dazustehen. */
   if (!st.touched) return packSize(d) ? padHint("", esc(packHint(d))) : PAD_HINT_EMPTY;
@@ -1933,10 +2263,12 @@ function padHtml(d, st){
         : qtyUnit(sp.rest, unitOf(d)))
     : "";
   /* Immer dieselbe Hoehe, damit der Zahlenblock nicht wandert. */
-  const totalLine = '<div class="padtotal">' + (ps && st.touched
-    ? 'macht <b>' + esc(brk) + '</b>' +
-      (sp.packs ? ' <span class="faint">· ' + esc(qtyUnit(total, unitOf(d))) + '</span>' : '')
-    : '') + '</div>';
+  const totalLine = '<div class="padtotal">' + (st.parts
+    ? (st.touched ? '<b>' + esc(emptiesText({ crates: parseNum(st.packs || 0), bottles: parseNum(st.singles || 0) })) + '</b>' : '')
+    : (ps && st.touched
+      ? 'macht <b>' + esc(brk) + '</b>' +
+        (sp.packs ? ' <span class="faint">· ' + esc(qtyUnit(total, unitOf(d))) + '</span>' : '')
+      : '')) + '</div>';
 
   /* vier Schnelltasten: mit vorheriger Zählung eine davon als "wie zuletzt" */
   const nums = st.field === "packs" ? [0, 1, 2, 5] : [0, 1, 6, 12];
@@ -1958,7 +2290,7 @@ function padHtml(d, st){
 /* 22 eingetippte Flaschen als 1 Kasten + 2 zurückschreiben. Passiert erst
    beim Feldwechsel – während des Tippens würde die Zahl sonst wegspringen. */
 function padNormalize(d, st){
-  if (!st.touched || !packSize(d)) return;
+  if (!st.touched || !packSize(d) || st.parts) return;
   const sp = splitPack(padValue(d, st), d);
   if (!sp) return;
   st.packs = String(sp.packs);
@@ -1998,6 +2330,7 @@ function qtySheet(opts){
   st.last = opts.last == null ? null : opts.last;
   st.ana = opts.analysis || null;
   st.addTo = opts.addTo == null ? null : opts.addTo;
+  st.parts = !!opts.parts;
   sheet(
     '<h3>' + esc(opts.title) + '</h3>' +
     (opts.sub ? '<div class="small muted">' + esc(opts.sub) + '</div>' : "") +
@@ -2010,7 +2343,7 @@ function qtySheet(opts){
       el.addEventListener("click", e => {
         const b = e.target.closest("button");
         if (b && b.dataset.act === "cancel"){ closeSheet(); return; }
-        if (b && b.dataset.act === "ok"){ closeSheet(); opts.onOk(padValue(d, st), st.touched); return; }
+        if (b && b.dataset.act === "ok"){ closeSheet(); opts.onOk(padValue(d, st), st.touched, st); return; }
         if (b && b.dataset.act === "extra"){ closeSheet(); if (opts.onExtra) opts.onExtra(); return; }
         if (padClick(e, d, st)) $("#padBody", el).innerHTML = padHtml(d, st);
       });
@@ -2025,7 +2358,8 @@ function qtySheet(opts){
    --------------------------------------------------------------------- */
 const pending = new Map();      // drinkId -> Menge in Einzeleinheiten (noch nicht gespeichert)
 let countFilter = { cat: "", q: "" };
-const round = { active:false, order:[], idx:0, cat:"", overview:false, st:null, stFor:"", restored:false };
+const round = { active:false, order:[], idx:0, cat:"", overview:false, st:null, stFor:"", restored:false,
+                empties:null };   // Leergut, am Ende der Runde erfasst
 
 function hasPending(){ return pending.size > 0; }
 
@@ -2118,6 +2452,7 @@ function startRound(cat){
   if (!order.length) return toast("Keine Getränke in dieser Auswahl");
   round.active = true; round.order = order; round.idx = 0; round.cat = cat || "";
   round.overview = false; round.st = null; round.stFor = ""; round.restored = false;
+  round.empties = null;
   setView("count");
 }
 function endRound(){
@@ -2187,6 +2522,7 @@ function renderRound(){
       '<button data-act="prev"' + (round.idx ? "" : " disabled") + ' aria-label="Zurück">&#8249;</button>' +
       '<div class="p-bar"><i style="width:' + Math.round((pos / total) * 100) + '%"></i></div>' +
       '<div class="r-count">' + counted + " / " + total + '</div>' +
+      '<button data-act="scan" aria-label="Scannen" style="font-size:13px;font-weight:700;letter-spacing:.02em">|||</button>' +
       '<button data-act="overview" aria-label="Übersicht">&#9776;</button>' +
       '<button data-act="abort" aria-label="Abbrechen">&#10005;</button>' +
     '</div></div>';
@@ -2231,10 +2567,17 @@ function renderRound(){
                 '<span class="t-val">nachtragen</span></button>';
             }).join("")
           : "") +
-      '</div>' +
+      '<div class="section-title">Leergut</div>' +
+      '<button class="tick' + (round.empties ? " ok" : "") + '" data-act="empties">' +
+        '<span class="t-mark">' + (round.empties ? "&#10003;" : "") + '</span>' +
+        '<span class="t-name">' + (round.empties ? esc(emptiesText(round.empties)) : "Leere Kästen mitzählen") + '</span>' +
+        '<span class="t-val">' + (round.empties ? "ändern" : "optional") + '</span></button>' +
+      '<div class="tiny faint" style="margin:2px 0 8px 2px">Damit steht vor der Fahrt zum Getränkemarkt fest, ' +
+        'wie viel Pfand mitgeht.</div>' +
+    '</div>' +
       '<div class="r-foot2">' +
-        '<button class="btn primary block" data-act="save"' + (counted ? "" : " disabled") + '>' +
-          (counted ? "Zählung speichern (" + counted + ")" : "Nichts zu speichern") + '</button>' +
+        '<button class="btn primary block" data-act="save"' + (counted || round.empties ? "" : " disabled") + '>' +
+          (counted ? "Zählung speichern (" + counted + ")" : (round.empties ? "Leergut speichern" : "Nichts zu speichern")) + '</button>' +
         '<div class="round-nav" style="margin-top:10px">' +
           '<button class="btn ghost" data-act="back">Zurück</button>' +
           '<button class="btn ghost" data-act="abort">Abbrechen</button>' +
@@ -2302,6 +2645,19 @@ $("#roundZone").addEventListener("click", e => {
   if (act === "overview"){ roundCommit(); round.overview = true; renderAll(); return; }
   if (act === "close-ov"){ round.overview = false; renderAll(); return; }
   if (act === "save"){ saveCounts(); return; }
+  if (act === "scan"){
+    roundCommit();
+    scanAndPick(d => {
+      const i = round.order.indexOf(d.id);
+      if (i < 0){ toast("„" + d.name + "“ ist nicht in dieser Runde"); return; }
+      roundJump(i);
+    }, "Getränk scannen");
+    return;
+  }
+  if (act === "empties"){
+    emptiesSheet(round.empties || lastEmpties(), (k, f) => { round.empties = { crates: k, bottles: f }; renderAll(); });
+    return;
+  }
   if (act === "abort"){
     if (!pending.size) return endRound();
     askConfirm("Runde abbrechen?", pending.size + " erfasste Menge(n) gehen verloren.",
@@ -2377,7 +2733,12 @@ function renderCount(){
         '</div>' +
         (undoable ? '<button class="btn sm ghost" data-act="undo">Zurücknehmen</button>' : "") +
       '</div>' +
-      '<button class="btn primary block" data-start="">Zählrunde starten · ' + store.drinks.length + ' Getränke</button>' +
+      '<button class="btn primary block" data-start="">Zählrunde starten · ' + store.drinks.length +
+        (store.drinks.length === 1 ? ' Getränk' : ' Getränke') + '</button>' +
+      (lastEmpties() && (num(lastEmpties().crates) || num(lastEmpties().bottles))
+        ? '<div class="small faint" style="margin-top:12px">Leergut: ' + esc(emptiesText(lastEmpties())) +
+          ' · ' + esc(relDays(lastEmpties().at)) + '</div>'
+        : "") +
       (cats.length > 1 || al.length
         ? '<div class="tiny faint" style="margin:12px 0 7px">Oder nur ein Teil:</div>' +
           '<div class="chips" style="padding-bottom:0">' +
@@ -2485,13 +2846,33 @@ $("#countList").addEventListener("click", e => {
   });
 });
 $("#countSearch").addEventListener("input", e => { countFilter.q = e.target.value; renderCount(); });
+
+/* Scannen auf der Startseite: das Getränk direkt nachzählen */
+$("#countScan").addEventListener("click", () => scanAndPick(d => {
+  const a = analyze(d.id);
+  qtySheet({
+    title: d.name,
+    sub: a.lastCount ? "Bestand jetzt " + qtyText(num(a.stock), d, true) + " · gezählt " + relDays(a.lastCount.at) : "erste Zählung",
+    drink: d, analysis: a,
+    value: pending.has(d.id) ? pending.get(d.id) : "",
+    last: a.lastCount ? num(a.lastCount.qty) : null,
+    onOk: (v, entered) => { if (entered) pending.set(d.id, v); else pending.delete(d.id); renderCount(); }
+  });
+}));
 $("#saveCount").addEventListener("click", () => saveCounts());
 
 /* ---- Speichern und sofort verständlich zusammenfassen ---- */
 async function saveCounts(){
-  if (!pending.size) return;
+  if (!pending.size && !(round.active && round.empties)) return;
   const at = new Date().toISOString();
   const session = uid();
+
+  /* Nur Leergut, keine Mengen: kurz und ohne Zusammenfassung */
+  if (!pending.size){
+    try { await saveEmpties(round.empties.crates, round.empties.bottles, session); toast("Leergut gespeichert"); }
+    catch(err){ console.error(err); toast("Fehler beim Speichern"); }
+    endRound(); renderAll(); return;
+  }
   const entries = Array.from(pending.entries()).map(([drinkId, qty]) => ({ drinkId, qty }));
 
   /* Die Zusammenfassung muss vor dem Schreiben entstehen – danach ist die
@@ -2516,6 +2897,7 @@ async function saveCounts(){
   btn.disabled = true; btn.textContent = "Speichern…";
   try {
     await store.addMany("counts", rows);
+    if (round.active && round.empties) await saveEmpties(round.empties.crates, round.empties.bottles, session);
     logActivity("Zählung gespeichert", rows.length + " Getränk" + (rows.length > 1 ? "e" : "") +
       ": " + entries.map(e => { const d = drinkById(e.drinkId); return d ? d.name + " " + qtyText(e.qty, d) : "?"; }).join(", "));
     pending.clear();
@@ -2663,6 +3045,23 @@ function shopModel(){
 function shopStep(d){ return packSize(d) || 1; }
 
 function renderShop(){
+  /* Leergut: was zum Getränkemarkt mitgeht */
+  const le = lastEmpties();
+  $("#emptiesCard").innerHTML =
+    '<div class="row" style="gap:12px">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-weight:600;font-size:17px">' + (le ? esc(emptiesText(le)) : "Leergut noch nicht gezählt") + '</div>' +
+        '<div class="small faint" style="margin-top:3px">' +
+          (le ? "gezählt " + esc(relDays(le.at)) + " · nach dem Abgeben auf 0 setzen" : "Am Ende jeder Zählrunde oder hier direkt") +
+        '</div></div>' +
+      '<button class="btn sm" id="emptiesEdit">' + (le ? "Ändern" : "Zählen") + '</button>' +
+    '</div>';
+  $("#emptiesEdit").onclick = () => emptiesSheet(le, async (k, f) => {
+    try { await saveEmpties(k, f, ""); toast("Leergut: " + emptiesText({ crates: k, bottles: f })); }
+    catch(err){ console.error(err); toast("Fehler beim Speichern"); }
+    renderAll();
+  });
+
   const items = shopModel();
   const host = $("#shopList");
   host.innerHTML = items.length ? items.map(it => {
@@ -2889,9 +3288,11 @@ $("#buyOpen").addEventListener("click", () => {
     '<h3>Einkauf nachtragen</h3>' +
     '<div class="small muted">Jeder Einkauf muss erfasst werden – sonst sieht es aus, als wäre weniger verbraucht worden.</div>' +
     '<div style="margin-top:14px">' +
-    '<label class="fld"><span>Getränk</span><select id="pDrink">' +
+    '<label class="fld"><span>Getränk</span><div class="row" style="gap:10px">' +
+      '<select id="pDrink" style="flex:1;min-width:0">' +
       store.drinks.map(d => '<option value="' + esc(d.id) + '">' + esc(d.name) +
-        (d.category ? " · " + esc(d.category) : "") + '</option>').join("") + '</select></label>' +
+        (d.category ? " · " + esc(d.category) : "") + '</option>').join("") + '</select>' +
+      '<button class="btn" id="pScan" type="button" style="flex:none">Scannen</button></div></label>' +
     '</div>' +
     '<div id="padBody">' + body() + '</div>' +
     '<div style="margin-top:16px">' +
@@ -2909,6 +3310,13 @@ $("#buyOpen").addEventListener("click", () => {
         state.drinkId = ev.target.value;
         $("#padBody", el).innerHTML = body();
       });
+      $("#pScan", el).onclick = () => scanSheet(code => {
+        const d = drinkByEan(code);
+        if (!d) return toast("Code unbekannt – zuerst unter Getränke zuordnen");
+        state.drinkId = d.id; $("#pDrink", el).value = d.id;
+        $("#padBody", el).innerHTML = body();
+        toast(d.name);
+      }, { title: "Getränk scannen" });
       el.addEventListener("click", ev => {
         if (ev.target.closest("#padBody") && padClick(ev, drinkById(state.drinkId), state.st))
           $("#padBody", el).innerHTML = padHtml(drinkById(state.drinkId), state.st);
@@ -2951,6 +3359,7 @@ function renderDrinks(){
     const sub = [
       d.category || "ohne Kategorie",
       packHint(d) || null,
+      d.ean ? "Code gespeichert" : null,
       a.stock != null ? "Bestand " + qtyText(a.stock, d, true) : "nie gezählt",
       num(d.minStock, 0) > 0 ? "Min. " + qtyUnit(num(d.minStock), unitOf(d)) : null
     ].filter(Boolean).join(" · ");
@@ -2965,9 +3374,11 @@ $("#drinkList").addEventListener("click", e => {
   const b = e.target.closest("[data-edit]"); if (b) drinkForm(drinkById(b.dataset.edit));
 });
 
-function drinkForm(d){
+function drinkForm(d, preset){
   const isNew = !d;
+  preset = preset || {};
   const cats = categories();
+  const eanVal = d ? (d.ean || "") : (preset.ean || "");
   sheet(
     '<h3>' + (isNew ? "Neues Getränk" : "Getränk bearbeiten") + '</h3>' +
     /* Zwei Felder reichen für den Normalfall. Alles Weitere liegt
@@ -2979,6 +3390,11 @@ function drinkForm(d){
       '<input type="number" id="fPackSize" inputmode="numeric" step="1" min="0" value="' +
       esc(d ? packSize(d) : DEFAULT_PACK_SIZE) + '" placeholder="' + DEFAULT_PACK_SIZE + '"></label>' +
     '<div class="small faint" id="fPackHint" style="margin-bottom:16px"></div>' +
+    '<label class="fld"><span>Barcode</span>' +
+      '<div class="row" style="gap:10px">' +
+        '<input type="text" id="fEan" inputmode="numeric" autocomplete="off" value="' + esc(eanVal) + '" placeholder="Strichcode auf der Flasche" style="flex:1;min-width:0">' +
+        '<button class="btn" id="fScan" type="button" style="flex:none">Scannen</button>' +
+      '</div></label>' +
     '</div>' +
     '<details class="fold" style="margin-bottom:14px"><summary>Mehr Einstellungen</summary>' +
     '<div class="fold-in">' +
@@ -3004,6 +3420,14 @@ function drinkForm(d){
       $("#fCancel", el).onclick = closeSheet;
       $("#fName", el).focus();
 
+      /* Barcode einscannen – der Dialog liegt über dem Sheet und gibt den
+         Wert ins Feld zurück */
+      $("#fScan", el).onclick = () => scanSheet(code => {
+        const other = drinkByEan(code);
+        if (other && (!d || other.id !== d.id)) toast("Dieser Code gehört schon zu „" + other.name + "“");
+        $("#fEan", el).value = code;
+      }, { title: "Barcode des Getränks" });
+
       /* Zeigt im Klartext, was die Kastengröße bedeutet */
       const hint = $("#fPackHint", el);
       const syncHint = () => {
@@ -3023,17 +3447,22 @@ function drinkForm(d){
         const name = $("#fName", el).value.trim();
         if (!name) return toast("Name fehlt");
         const ps = Math.round(num($("#fPackSize", el).value, 0));
+        const ean = $("#fEan", el).value.replace(/\D/g, "");
+        const other = drinkByEan(ean);
+        if (ean && other && (!d || other.id !== d.id)) return toast("Dieser Code gehört schon zu „" + other.name + "“");
         const data = {
           name,
           category: $("#fCat", el).value.trim(),
           unit: $("#fUnit", el).value.trim() || "Stk",
           packSize: ps > 1 ? ps : 0,
           packName: $("#fPackName", el).value.trim() || "Kasten",
-          minStock: parseNum($("#fMin", el).value)
+          minStock: parseNum($("#fMin", el).value),
+          ean
         };
         try {
-          if (isNew){ data.createdAt = new Date().toISOString(); await store.add("drinks", data); toast("Angelegt");
-                      logActivity("Getränk angelegt", name); }
+          if (isNew){ data.createdAt = new Date().toISOString(); const id = await store.add("drinks", data); toast("Angelegt");
+                      logActivity("Getränk angelegt", name + (ean ? " (Code " + ean + ")" : ""));
+                      if (preset.after){ closeSheet(); renderAll(); preset.after(Object.assign({ id }, data)); return; } }
           else { await store.update("drinks", d.id, data); toast("Gespeichert");
                  logActivity("Getränk geändert", name); }
           closeSheet(); renderAll();
@@ -3787,7 +4216,7 @@ $("#expJson").addEventListener("click", () => {
   download("staffelbar-" + stamp() + ".json", JSON.stringify({
     app: "staffelbar", version: APP_VERSION, barId: settings.barId, exportedAt: new Date().toISOString(),
     drinks: store.drinks, counts: store.counts, purchases: store.purchases, shopping: store.shopping,
-    activity: store.activity
+    empties: store.empties, activity: store.activity
   }, null, 2), "application/json");
   toast("JSON exportiert");
 });
@@ -3947,6 +4376,7 @@ $("#resetOpen").addEventListener("click", () => {
               await store.removeMany("counts", store.counts.map(r => r.id));
               await store.removeMany("purchases", store.purchases.map(r => r.id));
               await store.removeMany("shopping", store.shopping.map(r => r.id));
+              await store.removeMany("empties", store.empties.map(r => r.id));
               if (alles) await store.removeMany("drinks", store.drinks.map(r => r.id));
               logActivity("Daten zurückgesetzt", alles ? "alles, auch Getränke" : "Zählungen, Einkäufe, Liste");
               pending.clear();

@@ -28,6 +28,8 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 | **Kästen** | Es gilt überall **1 Kasten = 20 Flaschen**, ohne dass man etwas einträgt. Gezählt wird in **Kästen + einzelne Flaschen**, und das Tool rechnet von selbst um: 22 Flaschen sind 1 Kasten + 2, 44 sind 2 Kästen + 4. Abweichungen (Cola-Kiste mit 12) stehen am Getränk, eine 0 dort heißt „gibt es nur einzeln“. Gespeichert und gerechnet wird immer in Einzelflaschen. |
 | **Zusammenfassung** | Direkt nach dem Speichern: was sich verändert hat, was verbraucht wurde, wo der Bestand gestiegen ist – ohne selbst zu rechnen. |
 | **Einkaufsliste** | Füllt sich von selbst aus Warnschwelle und Vorhersage, mit Mengenvorschlag in vollen Kästen. Die Menge lässt sich direkt in der Zeile ändern – **ein Schritt ist ein Kasten**, die Zahl selbst öffnet den Zahlenblock für krumme Mengen. Eigene Positionen (auch freie Notizen wie „Eis“) lassen sich ergänzen. Abhaken bucht den Kauf als Nachkauf – die Position verschwindet dadurch von allein. |
+| **Leergut** | Am Ende jeder Zählrunde (oder direkt im Tab *Einkauf*) leere Kästen und lose leere Flaschen erfassen. Steht dann oben im Einkauf unter „Zum Markt mitnehmen“ – man weiß vor der Fahrt, wie viel Pfand mitgeht. Nach dem Abgeben auf 0 setzen. |
+| **Barcode** | Jedes Getränk kann seinen Strichcode bekommen: einmal scannen und zuordnen, danach erkennt die App die Flasche. Scannen geht auf der Startseite (zählt das Getränk direkt nach), in der Zählrunde (springt zum Getränk), beim Einkauf nachtragen und in der Getränkemaske. Ein unbekannter Code fragt einmal, zu welchem Getränk er gehört. Ohne Kamera lässt sich der Code von Hand eintippen. |
 | **Nachkauf** | Jeden Einkauf separat erfassen, damit der Verbrauch korrekt bleibt (ein Nachkauf ist kein Verbrauch). Geliefert wird nichts – die Kästen werden selbst vom Getränkemarkt geholt und hier eingebucht. |
 | **Statistik** | **Verbrauch insgesamt** – wie viele Kästen und Flaschen überhaupt weggehen, mit Ø pro Tag und Woche und einem Balken je Zählabschnitt. Dazu Ranking der beliebtesten Getränke, Verlaufsdiagramm pro Getränk, Filter nach Kategorie und Zeitraum. Mengen wahlweise in Flaschen oder in Kästen. |
 | **Protokoll** | Unter **Alle Zählungen** steht jede gespeicherte Zählrunde mit Datum. Antippen zeigt, was damals gezählt wurde und was daraus folgt: „vorher 6 Kästen + 3 Kästen gekauft → gezählt 7 Kästen · 7 Tage“. Zum Nachprüfen, wenn eine Zahl komisch aussieht. |
@@ -107,7 +109,8 @@ Die Daten liegen unter `bars/<bar-id>/…` in fünf Sammlungen: `drinks`
 `shopping` (die Einkaufsliste) und `settings` mit dem einzelnen Dokument
 `thresholds` (`warnDays`, `minPacks`, `pinHash`, `pinLen`), dazu `activity`
 (das Protokoll: `at`, `dev`, `name`, `model`, `os`, `browser`, `screen`, `ip`,
-`action`, `detail`). `qty` ist in allen Fällen die Menge in Einzelflaschen;
+`action`, `detail`) und `empties` (Leergut: `at`, `crates`, `bottles`). Getränke
+tragen optional `ean` (Strichcode). `qty` ist in allen Fällen die Menge in Einzelflaschen;
 Zählungen und Einkäufe tragen zusätzlich `by: { id, name, model, os, browser, ip }`.
 
 > **Zur Sicherheit:** Ohne Login müssen die Regeln offen sein – wer die
@@ -267,3 +270,8 @@ auch bei Farbenblindheit, im Sonnenlicht und im Ausdruck lesbar.
 - Diagramme sind handgeschriebenes SVG, der QR-Code-Encoder (Byte-Modus,
   Fehlerkorrektur M, Version 1–10) ebenfalls – dadurch keine externen Skripte
   außer dem Firebase-SDK
+- Der Barcode-Leser ist ebenfalls selbst geschrieben (EAN-13 und EAN-8 aus dem
+  Kamerabild: Zeilen in hell/dunkel-Läufe zerlegen, Strichbreiten gegen die
+  EAN-Muster prüfen, Prüfziffer kontrollieren). Wo der Browser einen
+  eingebauten Erkenner hat (`BarcodeDetector`, Chrome/Android), wird der
+  bevorzugt. Die Kamera braucht HTTPS und die Freigabe im Browser.

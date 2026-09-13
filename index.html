@@ -227,20 +227,47 @@ body.counting{padding-bottom:0;overscroll-behavior:none}
 
 #roundZone.rz{position:fixed;inset:0;z-index:60;background:var(--bg);
   display:flex;flex-direction:column;align-items:center;
-  padding:calc(10px + env(safe-area-inset-top,0px)) 16px calc(10px + var(--safe-b))}
+  height:100vh;height:100dvh;   /* dvh: ohne die Safari-Leiste mitzurechnen */
+  padding:calc(8px + env(safe-area-inset-top,0px)) 16px calc(8px + var(--safe-b))}
 /* Auch am grossen Bildschirm bleibt die Runde telefonbreit – ein Zahlenblock
    ueber 1000 Pixel ist niemandem eine Hilfe. */
 #roundZone.rz > *{width:100%;max-width:460px}
 #roundZone .r-head{flex:none;padding-bottom:2px}
-#roundZone .r-body{flex:1;min-height:0;display:flex;flex-direction:column}
-#roundZone .r-body.scroll{overflow-y:auto;-webkit-overflow-scrolling:touch}
-#roundZone .r-foot2{flex:none;padding-top:12px}
+/* Der Mittelteil darf schrumpfen und scrollt im Notfall – die Knoepfe unten
+   bleiben immer frei. Vorher lief er bei kleinen Displays unter sie. */
+#roundZone .r-body{flex:1;min-height:0;display:flex;flex-direction:column;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+#roundZone .r-foot2{flex:none;padding-top:10px}
+#roundZone .r-foot2 .round-nav{margin-top:0}
 
 /* Der Zahlenblock nimmt, was uebrig bleibt – auf grossen Telefonen werden
-   die Tasten groesser statt dass unten Luft steht. */
+   die Tasten groesser, auf kleinen kleiner, aber nie unter Fingergroesse. */
 #roundZone .r-pad{flex:1;min-height:0;display:flex;flex-direction:column}
-#roundZone .r-pad .pad{flex:1;min-height:186px;grid-auto-rows:1fr;margin-top:8px}
-#roundZone .r-pad .pad button{height:auto;font-size:26px}
+#roundZone .r-pad > *{flex:none}
+#roundZone .r-pad .pad{flex:1;min-height:176px;grid-auto-rows:1fr;margin-top:8px}
+#roundZone .r-pad .pad button{height:auto;min-height:40px;font-size:24px}
+
+/* Kurze Displays (iPhone SE, Safari mit Leisten): weniger Beiwerk, damit der
+   Zahlenblock ganz zu sehen bleibt. */
+@media (max-height:680px){
+  #roundZone .r-drink{padding-bottom:6px}
+  #roundZone .r-drink .round-name{font-size:22px}
+  #roundZone .r-drink .round-last{font-size:13px;margin-top:3px}
+  #roundZone .padfields{margin-top:8px}
+  #roundZone .padfield{padding:7px 12px 8px}
+  #roundZone .padfield .pf-val{font-size:26px}
+  #roundZone .padtotal{margin-top:6px}
+  #roundZone .padhint{margin-top:6px;min-height:42px;padding:6px 12px;font-size:13px}
+  #roundZone .pad-quick{margin-top:6px !important;margin-bottom:6px}
+  #roundZone .pad-quick button{height:38px}
+  #roundZone .r-pad .pad{gap:7px;margin-top:4px;min-height:160px}
+}
+@media (max-height:580px){
+  #roundZone .r-drink .round-last{display:none}
+  #roundZone .pad-quick{display:none}     /* Schnelltasten sind Beiwerk, die Null nicht */
+  #roundZone .padhint{min-height:36px}
+  #roundZone .r-pad .pad{min-height:148px}
+}
 
 .progress{display:flex;align-items:center;gap:12px;margin-bottom:14px}
 .progress .p-bar{flex:1;height:5px;border-radius:3px;background:var(--card-2);overflow:hidden}
@@ -280,7 +307,7 @@ body.counting{padding-bottom:0;overscroll-behavior:none}
 .padfield .pf-val{font-size:30px;font-weight:640;letter-spacing:-.035em;line-height:1.2;
   font-variant-numeric:tabular-nums;display:block}
 .padfield.on .pf-val{color:var(--fg)}
-.padfield .pf-val.empty{color:var(--fg-faint)}
+.padfield .pf-val.pf-empty{color:var(--fg-faint)}
 .padtotal{margin-top:12px;font-size:14.5px;color:var(--fg-dim);text-align:center;min-height:22px}
 .padtotal b{color:var(--fg);font-weight:640}
 
@@ -291,7 +318,7 @@ body.counting{padding-bottom:0;overscroll-behavior:none}
   font-size:13.5px;color:var(--fg-dim);line-height:1.45;text-align:center;
   min-height:58px;display:flex;align-items:center;justify-content:center}
 .padhint.warn{background:transparent;border:1.5px solid var(--fg);color:var(--fg)}
-.padhint.empty{background:transparent}
+.padhint.pad-empty{background:transparent}
 .padhint > span{display:block}
 .padhint b{color:var(--fg);font-weight:640}
 
@@ -1846,7 +1873,7 @@ function padValue(d, st){ return toBase(parseNum(st.packs || 0), parseNum(st.sin
 
 /* Was bedeutet die gerade eingetippte Zahl? Direkt beim Tippen sichtbar –
    dadurch fällt ein Vertipper auf, solange er noch zu ändern ist. */
-const PAD_HINT_EMPTY = '<div class="padhint empty"></div>';
+const PAD_HINT_EMPTY = '<div class="padhint pad-empty"></div>';
 /* Der Kasten ist ein Flex-Container (für die feste Höhe), deshalb muss der
    Text in einem eigenen Element stecken – sonst verschluckt Flex die
    Leerzeichen rund um die fett gesetzte Menge. */
@@ -1890,7 +1917,7 @@ function padHtml(d, st){
   const field = (key, lbl, val) =>
     '<button class="padfield' + (st.field === key ? " on" : "") + '" data-field="' + key + '">' +
       '<span class="pf-lbl">' + esc(lbl) + '</span>' +
-      '<span class="pf-val' + (val === "" ? " empty" : "") + '">' + esc(val === "" ? "0" : val) + '</span>' +
+      '<span class="pf-val' + (val === "" ? " pf-empty" : "") + '">' + esc(val === "" ? "0" : val) + '</span>' +
     '</button>';
   const fields = ps
     ? field("packs", packMany(d), st.packs) + field("singles", unitOf(d), st.singles)

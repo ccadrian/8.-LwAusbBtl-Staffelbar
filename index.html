@@ -4225,10 +4225,11 @@ const QR = (function(){
    12) Mehr: QR-Code, Export, Datenbank-Einstellungen, Import
    --------------------------------------------------------------------- */
 function shareUrl(){
+  /* Nur die nackte Adresse – zufällige Parameter aus der Adresszeile
+     gehören nicht auf einen gedruckten QR-Code. */
   const u = new URL(location.href);
-  u.hash = "";
+  u.hash = ""; u.search = "";
   if (settings.barId && settings.barId !== DEFAULT_BAR_ID) u.searchParams.set("bar", settings.barId);
-  else u.searchParams.delete("bar");
   return u.toString();
 }
 

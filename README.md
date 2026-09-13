@@ -35,8 +35,8 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 | **Erinnerung** | „Bald nachkaufen“ steht ganz oben auf der Startseite, sortiert nach Dringlichkeit – im Klartext: „nur noch 1 Kasten im Lager“. |
 | **Warnschwelle** | Unter **Mehr → Einstellungen** einstellbar, ab wie vielen Kästen ein Getränk als knapp gilt (Standard: 1 Kasten). Dazu wie bisher die Reichweite in Tagen. Beide Schwellen gelten für die **ganze Bar**, nicht nur für das Telefon, auf dem sie gesetzt wurden. |
 | **Verwalten** | Getränke anlegen, bearbeiten, löschen; Export als CSV und JSON; JSON-Backup einspielen. |
-| **Wer hat was gemacht?** | Jedes Gerät bekommt beim ersten Öffnen einen Namen („Adrian“, „Tresen-Handy“). Zählungen und Einkäufe tragen diesen Namen, und unter *Mehr → Zugang → Protokoll* steht – nur mit Master-Code – Eintrag für Eintrag, welches Gerät wann was gemacht hat: gezählt, eingekauft, Getränk angelegt, Code geändert, Daten zurückgesetzt. Nachvollziehbarkeit unter Kollegen, keine Beweissicherung: Ein Gerät kann sich umbenennen, und die Datenbank ist offen. |
-| **Zurücksetzen** | Fünfmal auf die Versionszeile ganz unten in *Mehr* tippen öffnet die **Gefahrenzone**. Dort lassen sich – nur nach Eingabe des Master-Codes – entweder alle Zählungen, Nachkäufe und die Einkaufsliste löschen (Getränke bleiben) oder wirklich alles. Der Dialog zählt vorher auf, was betroffen ist, und bietet den JSON-Export an. Einstellungen und Codes bleiben in beiden Fällen erhalten. |
+| **Wer hat was gemacht?** | Jedes Gerät bekommt beim ersten Öffnen automatisch eine Kennung; dazu kommt, was der Browser von selbst verrät – Modell (Android nennt z. B. „Pixel 8“ oder „Samsung SM-S911B“, iPhones sagen nur „iPhone“), Betriebssystem, Browser und die öffentliche IP. Niemand muss etwas eintippen. Zählungen und Einkäufe tragen diesen Stempel, und im **versteckten Verwaltungsbereich** (fünfmal auf die Versionszeile in *Mehr* tippen, dann Master-Code) steht Eintrag für Eintrag, welches Gerät wann was gemacht hat. Nachvollziehbarkeit unter Kollegen, keine Beweissicherung: Die IP ist im selben WLAN für alle gleich, und die Datenbank ist offen. Die IP kommt von `api.ipify.org` und darf fehlen. |
+| **Zurücksetzen** | Fünfmal auf die Versionszeile ganz unten in *Mehr* tippen öffnet den Verwaltungsbereich mit der **Gefahrenzone**. Dort lassen sich – nur nach Eingabe des Master-Codes – entweder alle Zählungen, Nachkäufe und die Einkaufsliste löschen (Getränke bleiben) oder wirklich alles. Der Dialog zählt vorher auf, was betroffen ist, und bietet den JSON-Export an. Einstellungen und Codes bleiben in beiden Fällen erhalten. |
 | **Zugangscode** | Beim Öffnen fragt die Seite einen Zahlencode ab; jedes Gerät merkt ihn sich einmal. Er steht als Hash in der Datenbank, nicht in der Seite – Ändern unter *Mehr → Zugang* wirkt damit auf allen Geräten. Ändern und Entfernen gehen nur nach Eingabe des **Master-Codes**, und der steht ausschließlich als Konstante `MASTER_CODE` in `index.html`. Siehe unten, was das leistet und was nicht. |
 | **QR-Code** | Wird im Tool selbst erzeugt (keine externe Bibliothek) und zeigt auf die eigene GitHub-Pages-URL. Direkt ausdruckbar für den Tresen. |
 
@@ -106,9 +106,9 @@ Die Daten liegen unter `bars/<bar-id>/…` in fünf Sammlungen: `drinks`
 (`packSize` = Flaschen je Kasten, `packName` = das Wort dafür), `counts`, `purchases`,
 `shopping` (die Einkaufsliste) und `settings` mit dem einzelnen Dokument
 `thresholds` (`warnDays`, `minPacks`, `pinHash`, `pinLen`), dazu `activity`
-(das Protokoll: `at`, `dev`, `name`, `action`, `detail`). `qty` ist in allen
-Fällen die Menge in Einzelflaschen; Zählungen und Einkäufe tragen zusätzlich
-`by: { id, name }` des Geräts.
+(das Protokoll: `at`, `dev`, `name`, `model`, `os`, `browser`, `screen`, `ip`,
+`action`, `detail`). `qty` ist in allen Fällen die Menge in Einzelflaschen;
+Zählungen und Einkäufe tragen zusätzlich `by: { id, name, model, os, browser, ip }`.
 
 > **Zur Sicherheit:** Ohne Login müssen die Regeln offen sein – wer die
 > Projekt-ID kennt, kann in `bars/staffelbar/…` lesen und schreiben. Alles

@@ -661,15 +661,6 @@ details.fold .fold-in{padding:0 18px 18px}
       <div class="small faint">Gilt erst, wenn genug gezählt wurde, um den Verbrauch zu schätzen.</div>
     </div>
 
-    <div class="section-title">Dieses Gerät</div>
-    <div class="card">
-      <label class="fld" style="margin-bottom:8px"><span>Name dieses Geräts</span>
-        <input type="text" id="cfgDevice" placeholder="z. B. Adrian oder Tresen-Handy" autocomplete="off">
-      </label>
-      <div class="small faint">Steht bei jeder Zählung und jedem Einkauf dabei, damit später klar ist,
-        wer was gemacht hat.</div>
-    </div>
-
     <div class="section-title">Zugang</div>
     <div class="card">
       <div class="btn-grid">
@@ -677,8 +668,6 @@ details.fold .fold-in{padding:0 18px 18px}
         <button class="btn ghost" id="pinLock">Jetzt sperren</button>
       </div>
       <button class="btn ghost block hide" id="pinClear" style="margin-top:10px">Code entfernen</button>
-      <hr class="sep">
-      <button class="btn block" id="logOpen">Protokoll ansehen (Master-Code)</button>
     </div>
 
     <div class="section-title">QR-Code für den Tresen</div>
@@ -730,9 +719,15 @@ details.fold .fold-in{padding:0 18px 18px}
     <div class="small faint" style="text-align:center;padding:18px 0 6px;user-select:none" id="verLine"></div>
 
     <!-- Kommt erst zum Vorschein, wenn man die Zeile darüber fünfmal antippt.
-         Nicht aus Geheimniskrämerei, sondern damit sie niemand aus Versehen
-         trifft, der nur den Export sucht. -->
+         Alles hier braucht den Master-Code. -->
     <div id="dangerZone" class="hide">
+      <div class="section-title">Verwaltung</div>
+      <div class="card">
+        <div class="small muted" style="margin-bottom:14px">Welches Gerät hat wann was gemacht –
+          Zählungen, Einkäufe, Änderungen, Zurücksetzen.</div>
+        <button class="btn block" id="logOpen">Protokoll ansehen</button>
+        <div class="tiny faint" style="margin-top:10px" id="thisDevice"></div>
+      </div>
       <div class="section-title">Gefahrenzone</div>
       <div class="card">
         <div class="small muted" style="margin-bottom:14px">Löscht die erfassten Daten
@@ -997,7 +992,6 @@ async function tryUnlock(explizit){
   if ((await pinHash(lockBuf)) === currentPinHash()){
     setUnlocked(currentPinHash());
     hideLock();
-    setTimeout(askDeviceName, 350);
     return true;
   }
   if (explizit){
@@ -1024,7 +1018,7 @@ function initLock(){
     if (b.dataset.act === "del"){ lockBuf = lockBuf.slice(0, -1); drawLockDots(); return; }
     if (b.dataset.act === "ok"){ await tryUnlock(true); return; }
   });
-  if (isUnlocked()){ hideLock(); setTimeout(askDeviceName, 600); } else showLock();
+  if (isUnlocked()) hideLock(); else showLock();
 }
 
 /* Warnschwellen liegen in bars/<bar>/settings/thresholds, damit alle
@@ -1062,38 +1056,98 @@ async function saveBarSettings(){
 
    Es gibt keine Anmeldung. Damit sich trotzdem nachvollziehen lässt, wer
    was gemacht hat, bekommt jedes Gerät beim ersten Öffnen eine zufällige
-   Kennung und einen Namen, den man selbst vergibt ("Adrian", "Tresen").
+   Kennung; dazu kommt, was der Browser von selbst verrät: Modell (bei
+   Android), Betriebssystem, Browser, Bildschirm und die öffentliche IP.
    Jede Änderung wird damit gestempelt und im Protokoll festgehalten.
 
    Ehrlich gesagt: Das ist Nachvollziehbarkeit unter Kollegen, keine
-   Beweissicherung. Wer will, benennt sein Gerät um – und die Datenbank
-   ist ohnehin offen. Für den Zweck "wer hat gestern gezählt?" reicht es.
+   Beweissicherung. Die Datenbank ist offen, und die IP ist im selben WLAN
+   für alle gleich. Für "welches Handy hat gestern gezählt?" reicht es.
    --------------------------------------------------------------------- */
 const LS_DEVICE = "staffelbar.device";
+
+/* Was der Browser über das Gerät verrät. Android nennt sein Modell
+   (z. B. "SM-G991B" oder "Pixel 8"), iPhones sagen nur "iPhone" – deshalb
+   hängt immer eine kurze Kennung dran, damit zwei iPhones auseinander zu
+   halten sind. */
+function deviceMeta(){
+  const ua = navigator.userAgent || "";
+  let model = "";
+  const and = ua.match(/Android[^;)]*;\s*([^;)]+)\)/);
+  if (and){
+    model = and[1].replace(/\s*Build.*$/, "").trim();
+    if (/^SM-/.test(model)) model = "Samsung " + model;     // SM-S911B = Galaxy S23
+  }
+  else if (/iPhone/.test(ua)) model = "iPhone";
+  else if (/iPad/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) model = "iPad";
+  else if (/Macintosh/.test(ua)) model = "Mac";
+  else if (/Windows/.test(ua)) model = "Windows-PC";
+  else if (/Linux/.test(ua)) model = "Linux";
+  else model = "Gerät";
+  let os = "";
+  let m;
+  if ((m = ua.match(/Android\s([\d.]+)/))) os = "Android " + m[1];
+  else if ((m = ua.match(/OS (\d+)[_\d]* like Mac/))) os = "iOS " + m[1];
+  else if ((m = ua.match(/Mac OS X (\d+[_.]\d+)/))) os = "macOS " + m[1].replace("_", ".");
+  else if ((m = ua.match(/Windows NT ([\d.]+)/))) os = "Windows";
+  const browser = /CriOS|Chrome\//.test(ua) && !/Edg/.test(ua) ? "Chrome"
+    : /Edg/.test(ua) ? "Edge" : /FxiOS|Firefox/.test(ua) ? "Firefox"
+    : /Safari/.test(ua) ? "Safari" : "Browser";
+  return { model, os, browser, screen: screen.width + "×" + screen.height };
+}
+
 function deviceInfo(){
   let d = null;
   try { d = JSON.parse(localStorage.getItem(LS_DEVICE) || "null"); } catch(_){}
   if (!d || !d.id){
-    d = { id: uid().slice(0, 8), name: "" };
+    d = { id: uid().replace(/-/g, "").slice(0, 8) };
     try { localStorage.setItem(LS_DEVICE, JSON.stringify(d)); } catch(_){}
   }
   return d;
 }
-function deviceName(){ const d = deviceInfo(); return d.name || ("Gerät " + d.id.slice(0, 4)); }
-function setDeviceName(name){
-  const d = deviceInfo(); d.name = String(name || "").trim().slice(0, 40);
-  try { localStorage.setItem(LS_DEVICE, JSON.stringify(d)); } catch(_){}
+/* Anzeigename: Modell plus vier Zeichen Kennung, z. B. "iPhone · a3f2" */
+function deviceName(){
+  const d = deviceInfo(), m = deviceMeta();
+  return m.model + " · " + d.id.slice(0, 4);
 }
+
+/* Öffentliche IP – nur ein Anhaltspunkt: alle Handys im selben WLAN
+   melden dieselbe. Kommt von einem Echo-Dienst, darf fehlen. */
+let deviceIp = "";
+async function fetchDeviceIp(){
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const r = await fetch("https://api.ipify.org?format=json", { signal: ctrl.signal, cache: "no-store" });
+    clearTimeout(t);
+    const j = await r.json();
+    if (j && typeof j.ip === "string") deviceIp = j.ip;
+  } catch(_){}
+}
+/* Auf Android/Chrome gibt es das genaue Modell auf Nachfrage – nachladen
+   und merken, dann stimmt der Name ab dem zweiten Öffnen. */
+async function refineDeviceModel(){
+  try {
+    if (!navigator.userAgentData || !navigator.userAgentData.getHighEntropyValues) return;
+    const v = await navigator.userAgentData.getHighEntropyValues(["model"]);
+    if (v && v.model){ const d = deviceInfo(); d.model = v.model; localStorage.setItem(LS_DEVICE, JSON.stringify(d)); }
+  } catch(_){}
+}
+
 /* Stempel für Zählungen und Einkäufe */
-function byStamp(){ const d = deviceInfo(); return { id: d.id, name: deviceName() }; }
+function byStamp(){
+  const d = deviceInfo(), m = deviceMeta();
+  return { id: d.id, name: deviceName(), model: d.model || m.model, os: m.os, browser: m.browser, ip: deviceIp };
+}
 
 /* Eintrag ins Protokoll. Schlägt das Schreiben fehl, bleibt die eigentliche
    Aktion trotzdem gültig – das Protokoll darf nichts blockieren. */
 async function logActivity(action, detail){
-  const d = deviceInfo();
+  const d = deviceInfo(), m = deviceMeta();
   try {
     await store.add("activity", { at: new Date().toISOString(), dev: d.id, name: deviceName(),
-                                  action: String(action), detail: String(detail || "") });
+      model: d.model || m.model, os: m.os, browser: m.browser, screen: m.screen, ip: deviceIp,
+      action: String(action), detail: String(detail || "") });
   } catch(err){ console.error("Protokoll", err); }
 }
 
@@ -3596,7 +3650,7 @@ function renderMore(){
   $("#cfgPacks").checked = !!settings.showPacks;
   const th = currentTheme();
   $$("#cfgTheme button").forEach(b => b.classList.toggle("on", b.dataset.theme === th));
-  if (document.activeElement !== $("#cfgDevice")) $("#cfgDevice").value = deviceInfo().name || "";
+
 
   const hatCode = !!currentPinHash();
   $("#pinClear").classList.toggle("hide", !hatCode);
@@ -3820,7 +3874,10 @@ $("#verLine").addEventListener("click", () => {
   const zeigen = zone.classList.contains("hide");
   zone.classList.toggle("hide", !zeigen);
   if (zeigen){
-    toast("Gefahrenzone sichtbar");
+    toast("Verwaltung sichtbar");
+  const m = deviceMeta(), d = deviceInfo();
+  $("#thisDevice").textContent = "Dieses Gerät: " + deviceName() +
+    (m.os ? " · " + m.os : "") + " · " + m.browser + (deviceIp ? " · " + deviceIp : "");
     zone.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 });
@@ -3942,38 +3999,6 @@ $("#pinChange").addEventListener("click", () => {
     });
 });
 
-$("#cfgDevice").addEventListener("change", e => {
-  const alt = deviceName();
-  setDeviceName(e.target.value);
-  toast("Dieses Gerät heißt jetzt „" + deviceName() + "“");
-  if (alt !== deviceName()) logActivity("Gerät umbenannt", alt + " → " + deviceName());
-});
-
-/* Beim ersten Öffnen einmal nach dem Namen fragen – ein Feld, ein Knopf.
-   Wer keinen vergibt, heißt "Gerät ab12" und kann das unter Mehr nachholen. */
-function askDeviceName(){
-  if (deviceInfo().name) return;
-  sheet(
-    '<h3>Wie heißt dieses Gerät?</h3>' +
-    '<div class="small muted" style="margin-top:5px">Der Name steht später bei allem, was von ' +
-      'hier aus gezählt oder eingekauft wird.</div>' +
-    '<div style="margin-top:16px"><label class="fld"><span>Name</span>' +
-      '<input type="text" id="dName" placeholder="z. B. Adrian oder Tresen-Handy" autocomplete="off"></label></div>' +
-    '<div class="btn-grid"><button class="btn ghost" id="dSkip">Später</button>' +
-    '<button class="btn primary" id="dOk">Fertig</button></div>',
-    el => {
-      $("#dName", el).focus();
-      $("#dSkip", el).onclick = closeSheet;
-      $("#dOk", el).onclick = () => {
-        const n = $("#dName", el).value.trim();
-        if (!n) return toast("Bitte einen Namen eintragen");
-        setDeviceName(n); closeSheet(); toast("Dieses Gerät heißt jetzt „" + n + "“");
-        logActivity("Gerät benannt", n);
-        renderAll();
-      };
-    });
-}
-
 /* --- Protokoll: nur mit Master-Code --- */
 $("#logOpen").addEventListener("click", () => {
   if (!hasMaster()){ showLog(); return; }
@@ -4004,16 +4029,18 @@ function showLog(){
     const t = r.at ? fmtDate(r.at) : "?";
     if (t !== tag){ tag = t; html += '<div class="section-title" style="margin-top:14px">' + esc(t) + '</div>'; }
     const zeit = r.at ? new Date(r.at).toLocaleTimeString("de-DE", { hour:"2-digit", minute:"2-digit" }) : "";
+    const tech = [r.os, r.browser, r.ip].filter(Boolean).join(" · ");
     html += '<div class="sum-row"><div class="s-main">' +
       '<div class="s-name">' + esc(r.action || "") + '</div>' +
       '<div class="s-sub">' + esc(zeit) + ' · <b>' + esc(r.name || geraete[r.dev] || "?") + '</b>' +
-        (r.detail ? ' · ' + esc(r.detail) : '') + '</div></div></div>';
+        (tech ? ' · ' + esc(tech) : '') +
+        (r.detail ? '<br>' + esc(r.detail) : '') + '</div></div></div>';
   });
 
   sheet(
     '<h3>Protokoll</h3>' +
-    '<div class="small muted" style="margin-top:5px">' + rows.length + ' Einträge, neueste zuerst. ' +
-      'Jedes Gerät steht mit dem Namen dabei, den es sich selbst gegeben hat.</div>' +
+    '<div class="small muted" style="margin-top:5px">' + rows.length + (rows.length === 1 ? ' Eintrag' : ' Einträge') + ', neueste zuerst. ' +
+      'Gerät = Modell plus Kennung; iPhones nennen kein Modell. Die IP ist im selben WLAN für alle gleich.</div>' +
     (devIds.length > 1
       ? '<div class="chips" style="margin-top:12px">' +
           '<button class="chip' + (logFilter ? "" : " on") + '" data-dev="">Alle</button>' +
@@ -4069,6 +4096,7 @@ window.addEventListener("offline", () => { if (store.mode === "firebase") store.
 
 store.onChange(renderAll);
 applyTheme(currentTheme());
+fetchDeviceIp(); refineDeviceModel();
 initLock();
 restoreRound();
 renderAll();

@@ -1431,6 +1431,51 @@ async function scanSheet(onCode, opts){
   tick();
 }
 
+/* Produktname zu einem Code aus Open Food Facts – frei, ohne Schlüssel,
+   Getränke sind dort gut abgedeckt. Wird nur für unbekannte Codes gefragt,
+   also einmal je neuer Sorte. Darf fehlen; dann tippt man den Namen. */
+async function lookupEan(code){
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    const r = await fetch("https://world.openfoodfacts.org/api/v2/product/" + encodeURIComponent(code) +
+      ".json?fields=product_name,product_name_de,brands,quantity,categories_tags", { signal: ctrl.signal });
+    clearTimeout(t);
+    const j = await r.json();
+    if (!j || j.status !== 1 || !j.product) return null;
+    const pr = j.product;
+    const name = String(pr.product_name_de || pr.product_name || "").trim();
+    const brand = String(pr.brands || "").split(",")[0].trim();
+    if (!name && !brand) return null;
+
+    /* "500 ml" -> "0,5 l"; "0.5 l" -> "0,5 l" */
+    let menge = String(pr.quantity || "").trim();
+    let m;
+    if ((m = menge.match(/^(\d+(?:[.,]\d+)?)\s*ml$/i))) menge = (parseFloat(m[1].replace(",", ".")) / 1000).toString().replace(".", ",") + " l";
+    else if ((m = menge.match(/^(\d+(?:[.,]\d+)?)\s*l$/i))) menge = m[1].replace(".", ",") + " l";
+
+    /* Marke davor, wenn sie nicht schon im Namen steckt; Menge dahinter.
+       Manche Einträge führen als Marke den Firmennamen ("COCA-COLA SERVICES
+       SA/NV") – solche Ungetüme bleiben weg, geprüft wird am ersten Wort. */
+    let voll = name;
+    const erstes = brand.split(/[\s-]/)[0].toLowerCase();
+    const markeOk = brand && brand.length <= 24 && !/\b(gmbh|ag|sa|nv|ltd|inc|co\.|kg|ohg)\b/i.test(brand);
+    if (markeOk && erstes && !name.toLowerCase().includes(erstes)) voll = (brand + " " + name).trim();
+    if (!name) voll = brand;
+    if (menge && !voll.toLowerCase().includes(menge.toLowerCase().replace(" ", ""))
+              && !voll.toLowerCase().includes(menge.toLowerCase())) voll = (voll + " " + menge).trim();
+
+    /* grobe Kategorie aus den Schlagworten */
+    const tags = Array.isArray(pr.categories_tags) ? pr.categories_tags.join(" ") : "";
+    let kat = "";
+    if (/en:beers|en:ales|en:lagers|wheat-beer/.test(tags)) kat = "Bier";
+    else if (/en:wines|en:sparkling-wines/.test(tags)) kat = "Wein";
+    else if (/en:spirits|en:liqueurs|en:vodka|en:whisk/.test(tags)) kat = "Spirituosen";
+    else if (/en:non-alcoholic-beverages|en:sodas|en:waters|en:juices|en:soft-drinks|en:energy-drinks/.test(tags)) kat = "Alkoholfrei";
+    return { name: voll, category: kat };
+  } catch(_){ return null; }
+}
+
 /* Gescannter Code: bekannt -> weiter mit dem Getränk; unbekannt -> einmal
    zuordnen, danach ist er gespeichert und wird sofort erkannt. */
 function scanAndPick(onDrink, title){
@@ -1441,11 +1486,13 @@ function scanAndPick(onDrink, title){
   }, { title: title || "Getränk scannen" });
 }
 function assignCodeSheet(code, onDrink){
+  let treffer = null;
   sheet(
     '<h3>Code noch unbekannt</h3>' +
     '<div class="small muted" style="margin-top:5px">' + esc(code) + ' – zu welchem Getränk gehört er? ' +
       'Einmal antippen, danach erkennt die App ihn von selbst.</div>' +
-    '<div style="margin-top:14px;max-height:46vh;overflow-y:auto">' +
+    '<div class="banner" id="aLookup" style="margin-top:14px"><div>Suche den Namen in der Produktdatenbank…</div></div>' +
+    '<div style="max-height:40vh;overflow-y:auto">' +
       (store.drinks.length
         ? store.drinks.map(d => '<button class="tick" data-assign="' + esc(d.id) + '">' +
             '<span class="t-name">' + esc(d.name) + '</span>' +
@@ -1456,7 +1503,22 @@ function assignCodeSheet(code, onDrink){
     '<button class="btn ghost block" id="aNo" style="margin-top:10px">Abbrechen</button>',
     el => {
       $("#aNo", el).onclick = closeSheet;
-      $("#aNew", el).onclick = () => { closeSheet(); drinkForm(null, { ean: code, after: onDrink }); };
+      $("#aNew", el).onclick = () => {
+        closeSheet();
+        drinkForm(null, { ean: code, after: onDrink, name: treffer ? treffer.name : "", category: treffer ? treffer.category : "" });
+      };
+      lookupEan(code).then(res => {
+        const box = $("#aLookup", el); if (!box) return;       // Sheet schon zu
+        treffer = res;
+        if (res){
+          box.innerHTML = '<div>Gefunden: <b>' + esc(res.name) + '</b>' +
+            (res.category ? ' <span class="badge">' + esc(res.category) + '</span>' : '') +
+            '<br><span class="faint">„Neues Getränk“ übernimmt den Namen – du kannst ihn noch ändern.</span></div>';
+          $("#aNew", el).textContent = "„" + res.name + "“ als neues Getränk anlegen";
+        } else {
+          box.innerHTML = '<div>In der Produktdatenbank nicht gefunden – der Name muss von Hand eingetragen werden.</div>';
+        }
+      });
       el.addEventListener("click", async e => {
         const b = e.target.closest("[data-assign]"); if (!b) return;
         const d = drinkById(b.dataset.assign); if (!d) return;
@@ -3379,13 +3441,15 @@ function drinkForm(d, preset){
   preset = preset || {};
   const cats = categories();
   const eanVal = d ? (d.ean || "") : (preset.ean || "");
+  const nameVal = d ? d.name : (preset.name || "");
+  const catVal = d ? (d.category || "") : (preset.category || "");
   sheet(
     '<h3>' + (isNew ? "Neues Getränk" : "Getränk bearbeiten") + '</h3>' +
     /* Zwei Felder reichen für den Normalfall. Alles Weitere liegt
        eingeklappt darunter – wer es braucht, findet es; wer nicht, wird
        nicht damit behelligt. */
     '<div style="margin-top:16px">' +
-    '<label class="fld"><span>Name</span><input type="text" id="fName" value="' + esc(d ? d.name : "") + '" placeholder="z. B. Weizenbier 0,5"></label>' +
+    '<label class="fld"><span>Name</span><input type="text" id="fName" value="' + esc(nameVal) + '" placeholder="z. B. Weizenbier 0,5"></label>' +
     '<label class="fld" style="margin-bottom:8px"><span>1 Kasten sind … Flaschen</span>' +
       '<input type="number" id="fPackSize" inputmode="numeric" step="1" min="0" value="' +
       esc(d ? packSize(d) : DEFAULT_PACK_SIZE) + '" placeholder="' + DEFAULT_PACK_SIZE + '"></label>' +
@@ -3398,7 +3462,7 @@ function drinkForm(d, preset){
     '</div>' +
     '<details class="fold" style="margin-bottom:14px"><summary>Mehr Einstellungen</summary>' +
     '<div class="fold-in">' +
-      '<label class="fld"><span>Kategorie</span><input type="text" id="fCat" list="catList" value="' + esc(d ? (d.category||"") : "") + '" placeholder="z. B. Bier"></label>' +
+      '<label class="fld"><span>Kategorie</span><input type="text" id="fCat" list="catList" value="' + esc(catVal) + '" placeholder="z. B. Bier"></label>' +
       '<datalist id="catList">' + cats.map(c => '<option value="' + esc(c) + '">').join("") + '</datalist>' +
       '<div class="row" style="gap:10px;align-items:flex-start">' +
         '<label class="fld" style="flex:1;min-width:0"><span>Einzeln heißt</span>' +
@@ -3422,10 +3486,21 @@ function drinkForm(d, preset){
 
       /* Barcode einscannen – der Dialog liegt über dem Sheet und gibt den
          Wert ins Feld zurück */
-      $("#fScan", el).onclick = () => scanSheet(code => {
+      $("#fScan", el).onclick = () => scanSheet(async code => {
         const other = drinkByEan(code);
         if (other && (!d || other.id !== d.id)) toast("Dieser Code gehört schon zu „" + other.name + "“");
         $("#fEan", el).value = code;
+        /* Name noch leer? Dann aus der Produktdatenbank vorschlagen. */
+        if (!$("#fName", el).value.trim()){
+          toast("Suche den Namen…");
+          const res = await lookupEan(code);
+          const nameEl = $("#fName", el);
+          if (res && nameEl && !nameEl.value.trim()){
+            nameEl.value = res.name;
+            if (res.category && $("#fCat", el) && !$("#fCat", el).value.trim()) $("#fCat", el).value = res.category;
+            toast("Gefunden: " + res.name);
+          } else if (!res) toast("Nicht in der Datenbank – bitte Namen eintragen");
+        }
       }, { title: "Barcode des Getränks" });
 
       /* Zeigt im Klartext, was die Kastengröße bedeutet */

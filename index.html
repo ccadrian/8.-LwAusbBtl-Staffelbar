@@ -661,6 +661,15 @@ details.fold .fold-in{padding:0 18px 18px}
       <div class="small faint">Gilt erst, wenn genug gezählt wurde, um den Verbrauch zu schätzen.</div>
     </div>
 
+    <div class="section-title">Dieses Gerät</div>
+    <div class="card">
+      <label class="fld" style="margin-bottom:8px"><span>Name dieses Geräts</span>
+        <input type="text" id="cfgDevice" placeholder="z. B. Adrian oder Tresen-Handy" autocomplete="off">
+      </label>
+      <div class="small faint">Steht bei jeder Zählung und jedem Einkauf dabei, damit später klar ist,
+        wer was gemacht hat.</div>
+    </div>
+
     <div class="section-title">Zugang</div>
     <div class="card">
       <div class="btn-grid">
@@ -668,6 +677,8 @@ details.fold .fold-in{padding:0 18px 18px}
         <button class="btn ghost" id="pinLock">Jetzt sperren</button>
       </div>
       <button class="btn ghost block hide" id="pinClear" style="margin-top:10px">Code entfernen</button>
+      <hr class="sep">
+      <button class="btn block" id="logOpen">Protokoll ansehen (Master-Code)</button>
     </div>
 
     <div class="section-title">QR-Code für den Tresen</div>
@@ -986,6 +997,7 @@ async function tryUnlock(explizit){
   if ((await pinHash(lockBuf)) === currentPinHash()){
     setUnlocked(currentPinHash());
     hideLock();
+    setTimeout(askDeviceName, 350);
     return true;
   }
   if (explizit){
@@ -1012,7 +1024,7 @@ function initLock(){
     if (b.dataset.act === "del"){ lockBuf = lockBuf.slice(0, -1); drawLockDots(); return; }
     if (b.dataset.act === "ok"){ await tryUnlock(true); return; }
   });
-  if (isUnlocked()) hideLock(); else showLock();
+  if (isUnlocked()){ hideLock(); setTimeout(askDeviceName, 600); } else showLock();
 }
 
 /* Warnschwellen liegen in bars/<bar>/settings/thresholds, damit alle
@@ -1043,6 +1055,46 @@ async function saveBarSettings(){
       at: new Date().toISOString()
     });
   } catch(err){ console.error(err); toast("Einstellung konnte nicht geteilt werden"); }
+}
+
+/* ---------------------------------------------------------------------
+   3c) Dieses Gerät und das Protokoll
+
+   Es gibt keine Anmeldung. Damit sich trotzdem nachvollziehen lässt, wer
+   was gemacht hat, bekommt jedes Gerät beim ersten Öffnen eine zufällige
+   Kennung und einen Namen, den man selbst vergibt ("Adrian", "Tresen").
+   Jede Änderung wird damit gestempelt und im Protokoll festgehalten.
+
+   Ehrlich gesagt: Das ist Nachvollziehbarkeit unter Kollegen, keine
+   Beweissicherung. Wer will, benennt sein Gerät um – und die Datenbank
+   ist ohnehin offen. Für den Zweck "wer hat gestern gezählt?" reicht es.
+   --------------------------------------------------------------------- */
+const LS_DEVICE = "staffelbar.device";
+function deviceInfo(){
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(LS_DEVICE) || "null"); } catch(_){}
+  if (!d || !d.id){
+    d = { id: uid().slice(0, 8), name: "" };
+    try { localStorage.setItem(LS_DEVICE, JSON.stringify(d)); } catch(_){}
+  }
+  return d;
+}
+function deviceName(){ const d = deviceInfo(); return d.name || ("Gerät " + d.id.slice(0, 4)); }
+function setDeviceName(name){
+  const d = deviceInfo(); d.name = String(name || "").trim().slice(0, 40);
+  try { localStorage.setItem(LS_DEVICE, JSON.stringify(d)); } catch(_){}
+}
+/* Stempel für Zählungen und Einkäufe */
+function byStamp(){ const d = deviceInfo(); return { id: d.id, name: deviceName() }; }
+
+/* Eintrag ins Protokoll. Schlägt das Schreiben fehl, bleibt die eigentliche
+   Aktion trotzdem gültig – das Protokoll darf nichts blockieren. */
+async function logActivity(action, detail){
+  const d = deviceInfo();
+  try {
+    await store.add("activity", { at: new Date().toISOString(), dev: d.id, name: deviceName(),
+                                  action: String(action), detail: String(detail || "") });
+  } catch(err){ console.error("Protokoll", err); }
 }
 
 /* Helligkeit: Wahl des Geräts, nicht der Bar – deshalb nur lokal. */
@@ -1095,6 +1147,9 @@ function activeFbConfig(){
      settings/thresholds { warnDays, minPacks, at }
                  Warnschwellen. Sie gehören der Bar, nicht dem Telefon –
                  sonst sähe jedes Gerät eine andere Erinnerung.
+     activity  { at, dev, name, action, detail }
+                 Protokoll: welches Gerät hat was gemacht. Zählungen und
+                 Einkäufe tragen zusätzlich by: { id, name }.
 
    Zählungen werden nie überschrieben – jede Zählung ist ein neues Dokument.
    --------------------------------------------------------------------- */
@@ -1102,7 +1157,7 @@ const store = {
   mode: "local",          // "firebase" | "local"
   status: "init",         // init | online | offline | error | local
   error: "",
-  drinks: [], counts: [], purchases: [], shopping: [], config: null,
+  drinks: [], counts: [], purchases: [], shopping: [], activity: [], config: null,
   _fs: null, _db: null, _unsub: [], _listeners: [], _cache: {}, _pending: {},
 
   /* noch nicht zum Server übertragene Änderungen */
@@ -1179,6 +1234,7 @@ const store = {
     bind("counts", "counts", "at", "desc", 4000);
     bind("purchases", "purchases", "at", "desc", 2000);
     bind("shopping", "shopping", "at", "desc", 300);
+    bind("activity", "activity", "at", "desc", 400);
 
     /* Warnschwellen: ein einzelnes Dokument, ohne Sortierfeld */
     this._unsub.push(f.onSnapshot(this._col("settings"),
@@ -1276,19 +1332,21 @@ const store = {
     this.counts = Array.isArray(d.counts) ? d.counts : [];
     this.purchases = Array.isArray(d.purchases) ? d.purchases : [];
     this.shopping = Array.isArray(d.shopping) ? d.shopping : [];
+    this.activity = Array.isArray(d.activity) ? d.activity : [];
     this._sortLocal();
   },
   _saveLocal(){
     try {
       localStorage.setItem(this._lsKey(), JSON.stringify({
-        drinks: this.drinks, counts: this.counts, purchases: this.purchases, shopping: this.shopping
+        drinks: this.drinks, counts: this.counts, purchases: this.purchases, shopping: this.shopping,
+        activity: this.activity.slice(0, 400)
       }));
     } catch(e){ toast("Speicher voll – Export anlegen!"); }
   },
   _sortLocal(){
     this.drinks.sort((a,b) => String(a.name||"").localeCompare(String(b.name||""), "de"));
     const desc = (a,b) => String(b.at||"").localeCompare(String(a.at||""));
-    this.counts.sort(desc); this.purchases.sort(desc); this.shopping.sort(desc);
+    this.counts.sort(desc); this.purchases.sort(desc); this.shopping.sort(desc); this.activity.sort(desc);
   }
 };
 
@@ -1919,6 +1977,7 @@ async function undoSession(session){
   rows.forEach(c => pending.set(c.drinkId, num(c.qty)));
   try {
     for (const c of rows) await store.remove("counts", c.id);
+    logActivity("Zählung zurückgenommen", rows.length + " Eintrag/Einträge vom " + fmtDateTime(rows[0].at));
     toast("Zurückgenommen – die Mengen stehen wieder zum Korrigieren bereit");
   } catch(err){ console.error(err); toast("Fehler beim Zurücknehmen"); }
   renderAll();
@@ -2369,13 +2428,15 @@ async function saveCounts(){
     const d = drinkById(e.drinkId);
     const sp = splitPack(e.qty, d);
     return { drinkId: e.drinkId, qty: e.qty, packs: sp ? sp.packs : 0,
-             singles: sp ? sp.rest : e.qty, at, session, note: "" };
+             singles: sp ? sp.rest : e.qty, at, session, note: "", by: byStamp() };
   });
 
   const btn = $("#saveCount"); const label = btn.textContent;
   btn.disabled = true; btn.textContent = "Speichern…";
   try {
     await store.addMany("counts", rows);
+    logActivity("Zählung gespeichert", rows.length + " Getränk" + (rows.length > 1 ? "e" : "") +
+      ": " + entries.map(e => { const d = drinkById(e.drinkId); return d ? d.name + " " + qtyText(e.qty, d) : "?"; }).join(", "));
     pending.clear();
     persistRound();
     if (round.active) endRound();
@@ -2561,7 +2622,8 @@ function renderShop(){
     const dr = drinkById(p.drinkId);
     return '<div class="item"><div class="i-main">' +
       '<div class="i-name">' + esc(dr ? dr.name : "(gelöscht)") + '</div>' +
-      '<div class="i-sub">' + esc(fmtDateTime(p.at)) + (p.note ? " · " + esc(p.note) : "") + '</div></div>' +
+      '<div class="i-sub">' + esc(fmtDateTime(p.at)) + (p.note ? " · " + esc(p.note) : "") +
+        (p.by && p.by.name ? " · " + esc(p.by.name) : "") + '</div></div>' +
       '<div class="i-val">+' + esc(dr ? qtyText(num(p.qty), dr) : fmt(num(p.qty))) + '</div>' +
       '<button class="btn sm danger" data-del="' + esc(p.id) + '">&#10005;</button></div>';
   }).join("") : '<div class="empty">Noch nichts eingekauft.</div>';
@@ -2648,6 +2710,7 @@ async function shopAction(e){
       await shopDrop(null, it.row);
       toast("Von der Liste genommen");
     }
+    logActivity("Von der Einkaufsliste genommen", it.name);
     renderAll(); return;
   }
 
@@ -2666,7 +2729,8 @@ async function shopAction(e){
         const sp = splitPack(v, d);
         await store.add("purchases", { drinkId: d.id, qty: v,
           packs: sp ? sp.packs : 0, singles: sp ? sp.rest : v,
-          at: new Date().toISOString(), note: "über die Einkaufsliste" });
+          at: new Date().toISOString(), note: "über die Einkaufsliste", by: byStamp() });
+        logActivity("Einkauf gebucht", d.name + " +" + qtyText(v, d, true));
         if (!it.auto) await shopDrop(d, it.row);
         toast("+" + qtyText(v, d) + " eingebucht");
         renderAll();
@@ -2678,7 +2742,12 @@ async function shopAction(e){
 $("#buyList").addEventListener("click", e => {
   const b = e.target.closest("[data-del]"); if (!b) return;
   askConfirm("Einkauf löschen?", "Der Eintrag wird entfernt. Die Verbrauchszahlen ändern sich dadurch.",
-    "Löschen", async () => { await store.remove("purchases", b.dataset.del); toast("Gelöscht"); renderAll(); });
+    "Löschen", async () => {
+      const p = store.purchases.find(x => x.id === b.dataset.del), dr = p && drinkById(p.drinkId);
+      await store.remove("purchases", b.dataset.del);
+      logActivity("Einkauf gelöscht", dr ? dr.name + " +" + qtyText(num(p.qty), dr, true) : "");
+      toast("Gelöscht"); renderAll();
+    });
 });
 
 /* Position von Hand auf die Liste setzen */
@@ -2719,6 +2788,7 @@ $("#shopAdd").addEventListener("click", () => {
         };
         if (d) await shopWrite(d, data);
         else await store.add("shopping", data);
+        logActivity("Auf die Einkaufsliste", d ? d.name : name);
         closeSheet(); toast("Auf der Liste"); renderAll();
       };
     });
@@ -2776,7 +2846,8 @@ $("#buyOpen").addEventListener("click", () => {
         try {
           await store.add("purchases", { drinkId: d.id, qty: v,
             packs: sp ? sp.packs : 0, singles: sp ? sp.rest : v,
-            at: iso, note: $("#pNote", el).value.trim() });
+            at: iso, note: $("#pNote", el).value.trim(), by: byStamp() });
+          logActivity("Einkauf nachgetragen", d.name + " +" + qtyText(v, d, true));
           closeSheet();
           toast("Nachkauf gespeichert: +" + qtyText(v, d));
           renderAll();
@@ -2881,8 +2952,10 @@ function drinkForm(d){
           minStock: parseNum($("#fMin", el).value)
         };
         try {
-          if (isNew){ data.createdAt = new Date().toISOString(); await store.add("drinks", data); toast("Angelegt"); }
-          else { await store.update("drinks", d.id, data); toast("Gespeichert"); }
+          if (isNew){ data.createdAt = new Date().toISOString(); await store.add("drinks", data); toast("Angelegt");
+                      logActivity("Getränk angelegt", name); }
+          else { await store.update("drinks", d.id, data); toast("Gespeichert");
+                 logActivity("Getränk geändert", name); }
           closeSheet(); renderAll();
         } catch(err){ console.error(err); toast("Fehler beim Speichern"); }
       };
@@ -2896,6 +2969,7 @@ function drinkForm(d){
             for (const p of store.purchases.filter(p => p.drinkId === d.id)) await store.remove("purchases", p.id);
             for (const x of store.shopping.filter(x => x.drinkId === d.id)) await store.remove("shopping", x.id);
             await store.remove("drinks", d.id);
+            logActivity("Getränk gelöscht", d.name + " (mit " + nC + " Zählungen)");
             pending.delete(d.id);
             toast("Gelöscht"); renderAll();
           });
@@ -3065,8 +3139,10 @@ function renderSessions(){
     const mit = det.filter(x => x.consumed != null);
     const used = mit.reduce((a, b) => a + Math.max(0, b.consumed), 0);
     const anomal = det.some(x => x.consumed != null && x.consumed < -0.0001);
+    const wer = sess.rows[0] && sess.rows[0].by && sess.rows[0].by.name;
     return '<button class="item" data-sess="' + esc(sess.key) + '" style="width:100%;text-align:left">' +
-      '<div class="i-main"><div class="i-name">' + esc(fmtDateTime(sess.at)) + '</div>' +
+      '<div class="i-main"><div class="i-name">' + esc(fmtDateTime(sess.at)) +
+        (wer ? ' <span class="badge">' + esc(wer) + '</span>' : '') + '</div>' +
       '<div class="i-sub">' + sess.rows.length + ' Getränk' + (sess.rows.length > 1 ? 'e' : '') +
         (mit.length ? ' · ' + esc(qtyUnit(used, "Flaschen")) + ' verbraucht' : ' · erste Zählung') +
         (anomal ? ' · Bestand gestiegen' : '') + '</div></div>' +
@@ -3107,7 +3183,9 @@ function showSession(key){
   sheet(
     '<h3>Zählung vom ' + esc(fmtDateTime(sess.at)) + '</h3>' +
     '<div class="small muted" style="margin-top:4px">' + sess.rows.length + ' Getränk' +
-      (sess.rows.length > 1 ? 'e' : '') + ' erfasst</div>' +
+      (sess.rows.length > 1 ? 'e' : '') + ' erfasst' +
+      (sess.rows[0] && sess.rows[0].by && sess.rows[0].by.name ? ' · von ' + esc(sess.rows[0].by.name) : '') +
+    '</div>' +
     '<div class="kpis" style="margin-top:16px">' +
       kpi(fmt(used), "verbraucht") +
       kpi(spanne != null ? fmt(spanne, 1) : "–", "Tage davor") +
@@ -3518,6 +3596,7 @@ function renderMore(){
   $("#cfgPacks").checked = !!settings.showPacks;
   const th = currentTheme();
   $$("#cfgTheme button").forEach(b => b.classList.toggle("on", b.dataset.theme === th));
+  if (document.activeElement !== $("#cfgDevice")) $("#cfgDevice").value = deviceInfo().name || "";
 
   const hatCode = !!currentPinHash();
   $("#pinClear").classList.toggle("hide", !hatCode);
@@ -3629,7 +3708,8 @@ $("#expCsv").addEventListener("click", () => {
 $("#expJson").addEventListener("click", () => {
   download("staffelbar-" + stamp() + ".json", JSON.stringify({
     app: "staffelbar", version: APP_VERSION, barId: settings.barId, exportedAt: new Date().toISOString(),
-    drinks: store.drinks, counts: store.counts, purchases: store.purchases, shopping: store.shopping
+    drinks: store.drinks, counts: store.counts, purchases: store.purchases, shopping: store.shopping,
+    activity: store.activity
   }, null, 2), "application/json");
   toast("JSON exportiert");
 });
@@ -3787,6 +3867,7 @@ $("#resetOpen").addEventListener("click", () => {
               await store.removeMany("purchases", store.purchases.map(r => r.id));
               await store.removeMany("shopping", store.shopping.map(r => r.id));
               if (alles) await store.removeMany("drinks", store.drinks.map(r => r.id));
+              logActivity("Daten zurückgesetzt", alles ? "alles, auch Getränke" : "Zählungen, Einkäufe, Liste");
               pending.clear();
               endRound();
               persistRound();
@@ -3815,6 +3896,7 @@ $("#pinClear").addEventListener("click", () => {
         settings.pinHash = ""; settings.pinLen = 0;
         try { localStorage.removeItem(LS_UNLOCK); } catch(_){}
         await saveBarSettings();
+        logActivity("Zugangscode entfernt", "");
         closeSheet(); hideLock(); toast("Code entfernt"); renderAll();
       };
     });
@@ -3851,6 +3933,7 @@ $("#pinChange").addEventListener("click", () => {
         settings.pinLen = a.length;     // damit der Sperrbildschirm weiß, wann er prüfen soll
         setUnlocked(h);                 // das eigene Gerät nicht aussperren
         await saveBarSettings();
+        logActivity("Zugangscode geändert", "");
         closeSheet();
         toast(store.mode === "firebase" ? "Code geändert – gilt für alle Geräte"
                                         : "Code geändert – nur auf diesem Gerät");
@@ -3858,6 +3941,95 @@ $("#pinChange").addEventListener("click", () => {
       };
     });
 });
+
+$("#cfgDevice").addEventListener("change", e => {
+  const alt = deviceName();
+  setDeviceName(e.target.value);
+  toast("Dieses Gerät heißt jetzt „" + deviceName() + "“");
+  if (alt !== deviceName()) logActivity("Gerät umbenannt", alt + " → " + deviceName());
+});
+
+/* Beim ersten Öffnen einmal nach dem Namen fragen – ein Feld, ein Knopf.
+   Wer keinen vergibt, heißt "Gerät ab12" und kann das unter Mehr nachholen. */
+function askDeviceName(){
+  if (deviceInfo().name) return;
+  sheet(
+    '<h3>Wie heißt dieses Gerät?</h3>' +
+    '<div class="small muted" style="margin-top:5px">Der Name steht später bei allem, was von ' +
+      'hier aus gezählt oder eingekauft wird.</div>' +
+    '<div style="margin-top:16px"><label class="fld"><span>Name</span>' +
+      '<input type="text" id="dName" placeholder="z. B. Adrian oder Tresen-Handy" autocomplete="off"></label></div>' +
+    '<div class="btn-grid"><button class="btn ghost" id="dSkip">Später</button>' +
+    '<button class="btn primary" id="dOk">Fertig</button></div>',
+    el => {
+      $("#dName", el).focus();
+      $("#dSkip", el).onclick = closeSheet;
+      $("#dOk", el).onclick = () => {
+        const n = $("#dName", el).value.trim();
+        if (!n) return toast("Bitte einen Namen eintragen");
+        setDeviceName(n); closeSheet(); toast("Dieses Gerät heißt jetzt „" + n + "“");
+        logActivity("Gerät benannt", n);
+        renderAll();
+      };
+    });
+}
+
+/* --- Protokoll: nur mit Master-Code --- */
+$("#logOpen").addEventListener("click", () => {
+  if (!hasMaster()){ showLog(); return; }
+  sheet(
+    '<h3>Protokoll</h3>' +
+    '<div class="small muted" style="margin-top:5px">Nur für die Verwaltung. Bitte den Master-Code eingeben.</div>' +
+    '<div style="margin-top:16px">' + masterField() + '</div>' +
+    '<div class="btn-grid"><button class="btn ghost" id="lCancel">Abbrechen</button>' +
+    '<button class="btn primary" id="lOk">Öffnen</button></div>',
+    el => {
+      $("#pinM", el).focus();
+      $("#lCancel", el).onclick = closeSheet;
+      $("#lOk", el).onclick = async () => { if (await masterGeprueft(el)) showLog(); };
+    });
+});
+
+let logFilter = "";
+function showLog(){
+  const rows = store.activity.slice(0, 400);
+  const geraete = {};
+  rows.forEach(r => { if (r.dev) geraete[r.dev] = r.name || ("Gerät " + String(r.dev).slice(0, 4)); });
+  const devIds = Object.keys(geraete);
+  const list = rows.filter(r => !logFilter || r.dev === logFilter);
+
+  /* Nach Tag gruppieren – so liest sich das Protokoll wie ein Tagebuch */
+  let html = "", tag = "";
+  list.forEach(r => {
+    const t = r.at ? fmtDate(r.at) : "?";
+    if (t !== tag){ tag = t; html += '<div class="section-title" style="margin-top:14px">' + esc(t) + '</div>'; }
+    const zeit = r.at ? new Date(r.at).toLocaleTimeString("de-DE", { hour:"2-digit", minute:"2-digit" }) : "";
+    html += '<div class="sum-row"><div class="s-main">' +
+      '<div class="s-name">' + esc(r.action || "") + '</div>' +
+      '<div class="s-sub">' + esc(zeit) + ' · <b>' + esc(r.name || geraete[r.dev] || "?") + '</b>' +
+        (r.detail ? ' · ' + esc(r.detail) : '') + '</div></div></div>';
+  });
+
+  sheet(
+    '<h3>Protokoll</h3>' +
+    '<div class="small muted" style="margin-top:5px">' + rows.length + ' Einträge, neueste zuerst. ' +
+      'Jedes Gerät steht mit dem Namen dabei, den es sich selbst gegeben hat.</div>' +
+    (devIds.length > 1
+      ? '<div class="chips" style="margin-top:12px">' +
+          '<button class="chip' + (logFilter ? "" : " on") + '" data-dev="">Alle</button>' +
+          devIds.map(id => '<button class="chip' + (logFilter === id ? " on" : "") + '" data-dev="' + esc(id) + '">' +
+            esc(geraete[id]) + '</button>').join("") + '</div>'
+      : "") +
+    '<div class="card" style="margin-top:8px">' + (html || '<div class="empty">Noch nichts protokolliert.</div>') + '</div>' +
+    '<button class="btn primary block" id="lClose" style="margin-top:6px">Schließen</button>',
+    el => {
+      $("#lClose", el).onclick = closeSheet;
+      el.addEventListener("click", e => {
+        const c = e.target.closest("[data-dev]"); if (!c) return;
+        logFilter = c.dataset.dev; showLog();
+      });
+    });
+}
 
 $("#cfgTheme").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b) return;

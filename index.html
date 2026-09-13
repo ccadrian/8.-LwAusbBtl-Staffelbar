@@ -2703,8 +2703,7 @@ function renderShop(){
     const dr = drinkById(p.drinkId);
     return '<div class="item"><div class="i-main">' +
       '<div class="i-name">' + esc(dr ? dr.name : "(gelöscht)") + '</div>' +
-      '<div class="i-sub">' + esc(fmtDateTime(p.at)) + (p.note ? " · " + esc(p.note) : "") +
-        (p.by && p.by.name ? " · " + esc(p.by.name) : "") + '</div></div>' +
+      '<div class="i-sub">' + esc(fmtDateTime(p.at)) + (p.note ? " · " + esc(p.note) : "") + '</div></div>' +
       '<div class="i-val">+' + esc(dr ? qtyText(num(p.qty), dr) : fmt(num(p.qty))) + '</div>' +
       '<button class="btn sm danger" data-del="' + esc(p.id) + '">&#10005;</button></div>';
   }).join("") : '<div class="empty">Noch nichts eingekauft.</div>';
@@ -3220,10 +3219,10 @@ function renderSessions(){
     const mit = det.filter(x => x.consumed != null);
     const used = mit.reduce((a, b) => a + Math.max(0, b.consumed), 0);
     const anomal = det.some(x => x.consumed != null && x.consumed < -0.0001);
-    const wer = sess.rows[0] && sess.rows[0].by && sess.rows[0].by.name;
+    /* Welches Gerät gezählt hat, steht nur im Protokoll der Verwaltung –
+       hier sieht es jeder, deshalb nicht. */
     return '<button class="item" data-sess="' + esc(sess.key) + '" style="width:100%;text-align:left">' +
-      '<div class="i-main"><div class="i-name">' + esc(fmtDateTime(sess.at)) +
-        (wer ? ' <span class="badge">' + esc(wer) + '</span>' : '') + '</div>' +
+      '<div class="i-main"><div class="i-name">' + esc(fmtDateTime(sess.at)) + '</div>' +
       '<div class="i-sub">' + sess.rows.length + ' Getränk' + (sess.rows.length > 1 ? 'e' : '') +
         (mit.length ? ' · ' + esc(qtyUnit(used, "Flaschen")) + ' verbraucht' : ' · erste Zählung') +
         (anomal ? ' · Bestand gestiegen' : '') + '</div></div>' +
@@ -3264,9 +3263,7 @@ function showSession(key){
   sheet(
     '<h3>Zählung vom ' + esc(fmtDateTime(sess.at)) + '</h3>' +
     '<div class="small muted" style="margin-top:4px">' + sess.rows.length + ' Getränk' +
-      (sess.rows.length > 1 ? 'e' : '') + ' erfasst' +
-      (sess.rows[0] && sess.rows[0].by && sess.rows[0].by.name ? ' · von ' + esc(sess.rows[0].by.name) : '') +
-    '</div>' +
+      (sess.rows.length > 1 ? 'e' : '') + ' erfasst</div>' +
     '<div class="kpis" style="margin-top:16px">' +
       kpi(fmt(used), "verbraucht") +
       kpi(spanne != null ? fmt(spanne, 1) : "–", "Tage davor") +

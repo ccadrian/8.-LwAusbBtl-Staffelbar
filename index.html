@@ -782,7 +782,8 @@ details.fold .fold-in{padding:0 1.125rem 1.125rem}
       <label class="sw"><input type="checkbox" id="cfgCash">
         <span>Anzeigen, wie viel in der Kasse sein müsste<br><span class="small faint">Nach jeder
         Zählung: Verbrauch&nbsp;× Preis. Nur eine Orientierung – Freigetränke, Bruch und Rabatte
-        sind nicht berücksichtigt.</span></span>
+        sind nicht berücksichtigt. Beim Kassensturz zählst du nur das Bargeld; was zum Soll fehlt,
+        wird als bargeldlos (PayPal/Karte) ausgewiesen, nicht als Fehlbetrag.</span></span>
       </label>
       <div id="cashBox">
         <hr class="sep">
@@ -934,7 +935,7 @@ const DEFAULT_BAR_ID = "staffelbar";
    Getränk selbst, und eine 0 dort heißt "gibt es nur einzeln". */
 const DEFAULT_PACK_SIZE = 20;
 
-const APP_VERSION = "1.4";
+const APP_VERSION = "1.5";
 const SDK = "https://www.gstatic.com/firebasejs/10.13.2/";
 
 /* ---------------------------------------------------------------------
@@ -2374,20 +2375,20 @@ function cashupForSession(session){
 }
 function cashDiffShort(c){
   if (!c) return "";
-  const d = num(c.diff);
-  if (Math.abs(d) < 0.005) return "stimmt";
-  return (d > 0 ? "+" : "−") + eur(Math.abs(d));
+  const cashless = Math.round((num(c.soll) - num(c.counted)) * 100) / 100;
+  if (Math.abs(cashless) < 0.005) return "bar bezahlt";
+  return cashless > 0 ? eur(cashless) + " bargeldlos" : eur(-cashless) + " über Umsatz";
 }
 /* Ergebnis-Kästchen eines Kassensturzes für Zusammenfassung und Protokoll */
 function cashDiffBox(c){
   if (!c) return "";
-  const d = num(c.diff);
-  const word = Math.abs(d) < 0.005 ? "Kasse stimmt genau"
-    : d > 0 ? eur(d) + " mehr in der Kasse als erwartet"
-            : eur(-d) + " fehlen in der Kasse";
-  return '<div class="cash-soll"><div class="cs-l">Kassensturz</div>' +
+  const cashless = Math.round((num(c.soll) - num(c.counted)) * 100) / 100;
+  const word = Math.abs(cashless) < 0.005 ? "alles bar bezahlt"
+    : cashless > 0 ? eur(cashless) + " liefen bargeldlos (PayPal/Karte)"
+                   : eur(-cashless) + " mehr Bargeld als Umsatz";
+  return '<div class="cash-soll"><div class="cs-l">Kassensturz · Bargeld gezählt</div>' +
     '<div class="cs-v">' + esc(eur(c.counted)) + '</div>' +
-    '<div class="cs-sub">Soll ' + esc(eur(c.soll)) + ' · ' + esc(word) + '</div></div>';
+    '<div class="cs-sub">Umsatz-Soll ' + esc(eur(c.soll)) + ' · ' + esc(word) + '</div></div>';
 }
 async function saveCashup(c){
   const soll = Math.round(num(c.soll) * 100) / 100;
@@ -2415,16 +2416,19 @@ function cashupSheet(o){
   let buf = "";
   const val = () => buf === "" ? 0 : (parseFloat(buf.replace(",", ".")) || 0);
   const diffHtml = () => {
-    if (buf === "") return '<span class="faint">Betrag eingeben …</span>';
-    const d = Math.round((val() - soll) * 100) / 100;
-    if (Math.abs(d) < 0.005) return "Kasse stimmt genau";
-    return d > 0 ? eur(d) + " zu viel in der Kasse" : eur(-d) + " fehlen in der Kasse";
+    if (buf === "") return '<span class="faint">Bargeld eingeben …</span>';
+    const cashless = Math.round((soll - val()) * 100) / 100;   // Soll − Bargeld = bargeldlos
+    if (Math.abs(cashless) < 0.005) return "alles bar bezahlt";
+    return cashless > 0
+      ? eur(cashless) + " liefen bargeldlos (PayPal/Karte)"
+      : eur(-cashless) + " mehr Bargeld als Umsatz";
   };
   sheet(
     '<h3>Kassensturz</h3>' +
     '<div class="small muted" style="margin-top:4px">Soll seit der letzten Zählung: <b>' + esc(eur(soll)) +
       '</b><br>' + fmt(bottles) + ' verbraucht × ' + esc(eur(settings.cashPrice)) + ' je Getränk</div>' +
-    '<div class="section-title" style="margin-top:14px">Wie viel ist wirklich in der Kasse?</div>' +
+    '<div class="small faint" style="margin-top:6px">Nur das <b>Bargeld</b> zählen. Was zum Soll fehlt, gilt als bargeldlos (PayPal/Karte) – kein Fehlbetrag.</div>' +
+    '<div class="section-title" style="margin-top:14px">Wie viel Bargeld ist in der Kasse?</div>' +
     '<div class="eurodisp"><span id="euroVal">0</span> €</div>' +
     '<div class="eurodiff" id="euroDiff"></div>' +
     '<div class="pad" id="euroPad">' +
@@ -2459,9 +2463,9 @@ function cashupSheet(o){
           if (buf === ""){ toast("Bitte den Kassenbetrag eingeben"); return; }
           const counted = val();
           await saveCashup({ session: o.session, at: at, bottles: bottles, soll: soll, counted: counted });
-          const d = Math.round((counted - soll) * 100) / 100;
-          toast(Math.abs(d) < 0.005 ? "Kasse stimmt genau"
-                : (d > 0 ? eur(d) + " zu viel" : eur(-d) + " fehlen"));
+          const cashless = Math.round((soll - counted) * 100) / 100;
+          toast(Math.abs(cashless) < 0.005 ? "Alles bar bezahlt"
+                : (cashless > 0 ? eur(cashless) + " bargeldlos" : eur(-cashless) + " über Umsatz"));
           closeSheet(); renderAll();
         }
       });
@@ -3561,7 +3565,7 @@ function showSummary(rows, at, session){
       kpi(span != null ? fmt(span, 1) : "–", "Tage davor") +
       kpi(String(used.length), "davon verbraucht") +
     '</div>' +
-    cashSollBox(totalUsed, "In der Kasse sollten sein") +
+    cashSollBox(totalUsed, "Umsatz seit der letzten Zählung") +
     (settings.cashOn && totalUsed > 0
       ? '<button class="btn block" data-act="cashup" style="margin:0 0 4px">Kasse zählen (Kassensturz)</button>'
       : "") +
@@ -4263,7 +4267,7 @@ function renderTotals(agg, runden){
       : "");
 
   host.innerHTML = head +
-    cashSollBox(total, "Kassen-Soll für diesen Zeitraum") +
+    cashSollBox(total, "Umsatz für diesen Zeitraum") +
     '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
       '" style="height:' + H + 'px;margin-top:12px">' + grid + bars + xl + '</svg>' +
     '<div class="legend"><span>Ein Balken ist das, was zwischen zwei Zählungen weg war.</span></div>';
@@ -4290,7 +4294,7 @@ function renderSessions(){
       '<div class="i-sub">' + sess.rows.length + ' Getränk' + (sess.rows.length > 1 ? 'e' : '') +
         (mit.length ? ' · ' + esc(qtyUnit(used, "Flaschen")) + ' verbraucht' : ' · erste Zählung') +
         (anomal ? ' · Bestand gestiegen' : '') +
-        (settings.cashOn && cashupForSession(sess.key) ? ' · Kasse ' + esc(cashDiffShort(cashupForSession(sess.key))) : '') +
+        (settings.cashOn && cashupForSession(sess.key) ? ' · ' + esc(cashDiffShort(cashupForSession(sess.key))) : '') +
         '</div></div>' +
       '<div class="i-val faint">›</div></button>';
   }).join("");
@@ -4339,7 +4343,7 @@ function showSession(key){
       kpi(spanne != null ? fmt(spanne, 1) : "–", "Tage davor") +
       kpi(String(mit.length), "davon verbraucht") +
     '</div>' +
-    cashSollBox(used, "Kasse dieser Zählung") +
+    cashSollBox(used, "Umsatz dieser Zählung") +
     (settings.cashOn ? cashDiffBox(cashupForSession(sess.key)) : "") +
     (settings.cashOn && used > 0
       ? '<button class="btn block" data-act="cashup" style="margin:0 0 12px">' +

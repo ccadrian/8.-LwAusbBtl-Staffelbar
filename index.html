@@ -735,8 +735,9 @@ details.fold .fold-in{padding:0 1.125rem 1.125rem}
   <section class="view hide" id="v-more">
 
     <div class="section-title">Wünsche</div>
-    <a class="btn block" id="wishLink" href="./wünsche.html" style="text-decoration:none">Wunschliste öffnen &rarr;</a>
-    <div class="small faint" style="margin:8px 2px 0">Was fehlt in der Bar, was soll nachgekauft werden – jeder kann Wünsche eintragen und abstimmen.</div>
+    <a class="btn primary block" id="wishLink" href="./wünsche.html" target="_blank" rel="noopener" style="text-decoration:none">Wunschliste öffnen &rarr;</a>
+    <button class="btn block" id="wishCopy" style="margin-top:8px">Link zum Weitergeben kopieren</button>
+    <div class="small faint" style="margin:8px 2px 0">Jeder kann Wünsche eintragen und abstimmen – auch ohne Zugang zur App. Den kopierten Link an alle schicken oder als QR aushängen. Bearbeiten und Löschen nur mit Admin-Code.</div>
 
     <div class="section-title">Einstellungen</div>
     <div class="card">
@@ -939,7 +940,7 @@ const DEFAULT_BAR_ID = "staffelbar";
    Getränk selbst, und eine 0 dort heißt "gibt es nur einzeln". */
 const DEFAULT_PACK_SIZE = 20;
 
-const APP_VERSION = "1.6";
+const APP_VERSION = "1.7";
 const SDK = "https://www.gstatic.com/firebasejs/10.13.2/";
 
 /* ---------------------------------------------------------------------
@@ -4749,8 +4750,9 @@ function shareUrl(){
 }
 
 function renderMore(){
+  const wishBar = (settings.barId && settings.barId !== DEFAULT_BAR_ID) ? "?bar=" + encodeURIComponent(settings.barId) : "";
   const wl = document.getElementById("wishLink");
-  if (wl) wl.href = "./wünsche.html" + (settings.barId && settings.barId !== DEFAULT_BAR_ID ? "?bar=" + encodeURIComponent(settings.barId) : "");
+  if (wl) wl.href = "./wünsche.html" + wishBar;
   const url = shareUrl();
   $("#qrUrl").textContent = url;
   try { $("#qrbox").innerHTML = QR.svg(url, 250); }
@@ -4948,6 +4950,20 @@ $("#cfgSave").addEventListener("click", async () => {
   await store.connect();
   renderAll();
 });
+function wishShareUrl(){
+  try {
+    const u = new URL("wuensche.html", location.href);   // ASCII-Alias – überall tippbar
+    if (settings.barId && settings.barId !== DEFAULT_BAR_ID) u.searchParams.set("bar", settings.barId);
+    return u.toString();
+  } catch(_){ return location.origin + "/wuensche.html"; }
+}
+const wishCopyBtn = document.getElementById("wishCopy");
+if (wishCopyBtn) wishCopyBtn.addEventListener("click", async () => {
+  const url = wishShareUrl();
+  try { await navigator.clipboard.writeText(url); toast("Wünsche-Link kopiert"); }
+  catch(_){ prompt("Link zum Weitergeben:", url); }
+});
+
 $("#cfgClear").addEventListener("click", () => {
   askConfirm("Einstellungen zurücksetzen?",
     "Firebase-Konfiguration und Bar-ID werden auf diesem Gerät gelöscht. Die Daten in Firestore bleiben erhalten.",

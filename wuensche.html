@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<title>Staffelbar · Wünsche</title>
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:#ffffff; --bg-2:#f7f7f8; --card:#ffffff; --card-2:#f1f1f3;
+  --line:#e6e6e9; --line-2:#d2d2d7; --fg:#0b0b0d; --fg-dim:#55555c; --fg-faint:#6b6b73;
+  --accent:#0b0b0d; --accent-ink:#ffffff; --ring:rgba(11,11,13,.08);
+  --r:1.125rem; --r-sm:0.875rem; --tap:3.375rem; --safe-b:env(safe-area-inset-bottom,0);
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#000000; --bg-2:#0d0d0f; --card:#121214; --card-2:#1d1d21;
+  --line:#26262a; --line-2:#35353b; --fg:#fafafa; --fg-dim:#a8a8b0; --fg-faint:#9a9aa2;
+  --accent:#fafafa; --accent-ink:#0b0b0d; --ring:rgba(250,250,250,.12);
+}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);
+  font:16px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;letter-spacing:-.011em;padding-bottom:calc(24px + var(--safe-b));
+  overscroll-behavior-y:contain}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.022em}
+button,input,textarea{font:inherit;color:inherit;letter-spacing:inherit}
+button{cursor:pointer;border:none;background:none}
+a{color:var(--fg)}
+.hide{display:none!important}
+.wrap{max-width:680px;margin:0 auto;padding:0 18px}
+header.top{position:sticky;top:0;z-index:40;background:var(--bg);
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:saturate(180%) blur(14px);border-bottom:1px solid var(--line)}
+.top-in{max-width:680px;margin:0 auto;padding:13px 18px;display:flex;align-items:center;gap:12px}
+.brand{font-size:17px;font-weight:600;letter-spacing:-.024em;flex:1;min-width:0}
+.brand small{display:block;font-size:12px;font-weight:400;color:var(--fg-faint);margin-top:1px}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--fg-faint)}
+.dot.on{background:var(--fg)} .dot.off{background:transparent;box-shadow:inset 0 0 0 1.5px var(--fg-faint)}
+.dot.err{background:transparent;box-shadow:inset 0 0 0 4px var(--fg)}
+.back{width:36px;height:36px;border-radius:9px;border:1px solid var(--line-2);color:var(--fg-dim);
+  display:grid;place-items:center;flex:none;text-decoration:none;font-size:18px}
+.intro{color:var(--fg-dim);font-size:14px;margin:18px 0 14px;line-height:1.55}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:12px}
+label.fld>span{display:block;font-size:12.5px;font-weight:500;color:var(--fg-dim);margin-bottom:7px}
+input[type=text],textarea{width:100%;min-height:48px;padding:12px 14px;border-radius:var(--r-sm);
+  background:var(--bg);border:1px solid var(--line-2);outline:none;transition:border-color .12s,box-shadow .12s}
+input::placeholder,textarea::placeholder{color:var(--fg-faint)}
+input:focus,textarea:focus{border-color:var(--fg);box-shadow:0 0 0 3.5px var(--ring)}
+textarea{min-height:64px;resize:vertical}
+.btn{min-height:var(--tap);padding:0 18px;border-radius:var(--r-sm);background:transparent;
+  border:1px solid var(--line-2);font-weight:510;display:inline-flex;align-items:center;justify-content:center;
+  gap:8px;font-size:15.5px;transition:background .12s}
+.btn:active{background:var(--card-2)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:560}
+.btn.block{width:100%}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.row{display:flex;gap:10px;align-items:center}
+.section-title{font-size:11px;text-transform:uppercase;letter-spacing:.075em;color:var(--fg-faint);
+  margin:26px 0 10px;font-weight:600;display:flex;align-items:center;gap:8px}
+.section-title .count{color:var(--fg-dim)}
+.chips{display:flex;gap:7px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;min-height:34px;padding:0 13px;border-radius:17px;background:transparent;border:1px solid var(--line-2);
+  font-size:13px;font-weight:500;color:var(--fg-dim);white-space:nowrap}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:550}
+.wish{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r);padding:13px 14px;margin-bottom:9px}
+.wish.done{opacity:.6}
+.vote{flex:none;width:52px;min-height:56px;border-radius:var(--r-sm);border:1px solid var(--line-2);
+  background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-weight:700}
+.vote.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.vote b{font-size:17px;line-height:1} .vote span{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;opacity:.7}
+.w-main{flex:1;min-width:0}
+.w-text{font-weight:530;letter-spacing:-.012em;word-break:break-word}
+.wish.done .w-text{text-decoration:line-through}
+.w-sub{font-size:12px;color:var(--fg-faint);margin-top:3px;word-break:break-word}
+.w-cat{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;
+  background:var(--card-2);color:var(--fg-dim);margin-right:6px}
+.w-acts{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.mini{min-height:34px;padding:0 11px;border-radius:8px;border:1px solid var(--line);background:transparent;
+  font-size:12.5px;font-weight:550;color:var(--fg-dim)}
+.mini:active{background:var(--card-2)}
+.empty{padding:30px 14px;text-align:center;color:var(--fg-faint);font-size:14px;line-height:1.55}
+.banner{display:flex;gap:10px;padding:12px 14px;border-radius:var(--r-sm);border:1px solid var(--line);
+  background:var(--bg-2);font-size:13px;color:var(--fg-dim);margin-bottom:12px;line-height:1.5}
+.banner b{color:var(--fg)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + var(--safe-b));z-index:200;
+  background:var(--fg);color:var(--bg);padding:11px 18px;border-radius:9px;font-weight:500;font-size:14px;
+  box-shadow:0 8px 26px rgba(0,0,0,.22);max-width:90vw;text-align:center}
+.foot{text-align:center;color:var(--fg-faint);font-size:11.5px;padding:22px 0 8px}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand">Wünsche <small id="sub">Was fehlt? Was wünscht ihr euch?</small></div>
+    <div class="dot" id="dot" title="Verbindung"></div>
+    <a class="back" id="back" href="./" title="Zurück zur App" aria-label="Zurück">&#8592;</a>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="intro">Trag ein, was in die Bar soll – neue Getränke, Snacks, Deko, kaputte Sachen, Ideen für die Zukunft. Jeder kann etwas hinzufügen und bei anderen Wünschen auf <b>„Ich auch"</b> tippen, damit die beliebtesten oben stehen.</div>
+
+  <div class="card">
+    <label class="fld"><span>Wunsch</span>
+      <textarea id="wText" maxlength="280" placeholder="z. B. Alkoholfreies Weizen ins Sortiment, neue Dartscheibe, Zitronen nachbestellen …"></textarea>
+    </label>
+    <div class="row" style="margin-top:2px">
+      <input type="text" id="wWho" maxlength="40" placeholder="Dein Name (optional)" style="flex:1;min-width:0">
+    </div>
+    <div class="chips" id="catPick" style="margin-top:12px"></div>
+    <button class="btn primary block" id="wAdd" style="margin-top:12px">Wunsch hinzufügen</button>
+  </div>
+
+  <div class="section-title">Filter</div>
+  <div class="chips" id="catFilter"></div>
+
+  <div id="openWishes"></div>
+
+  <div class="section-title hide" id="doneTitle">Erledigt <span class="count" id="doneCount"></span></div>
+  <div id="doneWishes"></div>
+
+  <div class="foot" id="foot"></div>
+</main>
+
+<div id="toastRoot"></div>
+
+<script>
+/* =====================================================================
+   Staffelbar · Wünsche – eigenständige Seite, gleiche Firestore-Datenbank.
+   Sammlung: bars/<BAR>/wishes { text, who, cat, votes, done, at, doneAt }
+   Kein Login. Dieselben Zugriffsregeln wie die Haupt-App.
+   ===================================================================== */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB3Sz9CUOg1ApFeI4QodFfN5AtLKLwqVf8",
+  authDomain: "lwausbbtl-39ae4.firebaseapp.com",
+  projectId: "lwausbbtl-39ae4",
+  storageBucket: "lwausbbtl-39ae4.firebasestorage.app",
+  messagingSenderId: "1095525431675",
+  appId: "1:1095525431675:web:ae0e601e19c886970065de"
+};
+const SDK = "https://www.gstatic.com/firebasejs/10.13.2/";
+const DEFAULT_BAR_ID = "staffelbar";
+const CATS = ["Getränke", "Snacks", "Deko", "Technik", "Reparatur", "Sonstiges"];
+
+const $ = (s, r) => (r || document).querySelector(s);
+const barId = (new URLSearchParams(location.search).get("bar") || DEFAULT_BAR_ID)
+  .trim().replace(/[^\w\-]/g, "-") || DEFAULT_BAR_ID;
+
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g,
+  c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+function num(v, f){ const n = Number(v); return Number.isFinite(n) ? n : (f===undefined?0:f); }
+function uid(){ return (crypto.randomUUID ? crypto.randomUUID()
+  : "id-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,10)); }
+let toastT = null;
+function toast(m){ const o=$(".toast"); if(o)o.remove();
+  const e=document.createElement("div"); e.className="toast"; e.textContent=m;
+  $("#toastRoot").appendChild(e); clearTimeout(toastT); toastT=setTimeout(()=>e.remove(),2600); }
+function relTime(iso){ const ms=Date.now()-new Date(iso).getTime();
+  if(ms<3600000) return "gerade eben"; if(ms<86400000) return "vor "+Math.round(ms/3600000)+" Std.";
+  const d=Math.round(ms/86400000); return d===1?"gestern":"vor "+d+" Tagen"; }
+
+/* Mein Gerät: verhindert Doppel-Stimmen und erlaubt Löschen eigener Wünsche.
+   localStorage ist pro Origin – auf github.io teilen sich App und diese Seite
+   denselben Speicher, die Kennung passt also zusammen. */
+const DEV_KEY = "staffelbar.device";
+function deviceId(){
+  let v=""; try{ v=localStorage.getItem(DEV_KEY)||""; }catch(_){}
+  if(!v){ v=uid(); try{ localStorage.setItem(DEV_KEY,v); }catch(_){} }
+  return v;
+}
+const VOTE_KEY = "staffelbar.myvotes." + barId;
+function myVotes(){ try{ return JSON.parse(localStorage.getItem(VOTE_KEY)||"{}")||{}; }catch(_){ return {}; } }
+function setMyVote(id,on){ const m=myVotes(); if(on)m[id]=1; else delete m[id];
+  try{ localStorage.setItem(VOTE_KEY,JSON.stringify(m)); }catch(_){} }
+
+/* ---- Datenspeicher: Firestore, sonst lokal ---- */
+const store = {
+  mode:"local", status:"init", err:"", wishes:[], _fs:null, _db:null, _un:null,
+  async connect(){
+    const c = FIREBASE_CONFIG;
+    if(!c || !c.apiKey || !c.projectId){ this.mode="local"; this.status="local"; this._loadLocal(); render(); return; }
+    this.status="connecting"; renderDot();
+    try{
+      const to = p => Promise.race([p, new Promise((_,r)=>setTimeout(()=>r(new Error("Zeitüberschreitung")),15000))]);
+      const [appMod,fsMod] = await to(Promise.all([import(SDK+"firebase-app.js"), import(SDK+"firebase-firestore.js")]));
+      const app = appMod.initializeApp(c, "wuensche-"+Date.now());
+      let db; try{ db = fsMod.initializeFirestore(app,{ localCache: fsMod.persistentLocalCache({ tabManager: fsMod.persistentMultipleTabManager() }) }); }
+      catch(_){ db = fsMod.getFirestore(app); }
+      this._fs=fsMod; this._db=db; this.mode="firebase"; this._listen();
+    }catch(e){ console.error(e); this.mode="local"; this.status="error";
+      this.err=/dynamically imported module|Failed to fetch|NetworkError/i.test(e&&e.message||"")
+        ? "Firebase-SDK nicht erreichbar – nur auf diesem Gerät." : (e&&e.message||String(e));
+      this._loadLocal(); render(); }
+  },
+  _col(){ return this._fs.collection(this._db, "bars", barId, "wishes"); },
+  _listen(){
+    const f=this._fs;
+    const q=f.query(this._col(), f.orderBy("at","desc"), f.limit(500));
+    this._un=f.onSnapshot(q, snap=>{
+      this.wishes=snap.docs.map(d=>Object.assign({id:d.id}, d.data()));
+      this.status = snap.metadata.fromCache && !navigator.onLine ? "offline" : "online";
+      render();
+    }, err=>{ console.error(err); this.status="error"; this.err=err&&err.message||String(err); render(); });
+  },
+  async add(data){
+    if(this.mode==="firebase") return (await this._fs.addDoc(this._col(), data)).id;
+    const id=uid(); this.wishes.unshift(Object.assign({id},data)); this._saveLocal(); render(); return id;
+  },
+  async update(id,data){
+    if(this.mode==="firebase"){ const f=this._fs; await f.updateDoc(f.doc(this._db,"bars",barId,"wishes",id), data); return; }
+    const w=this.wishes.find(x=>x.id===id); if(w)Object.assign(w,data); this._saveLocal(); render();
+  },
+  async remove(id){
+    if(this.mode==="firebase"){ const f=this._fs; await f.deleteDoc(f.doc(this._db,"bars",barId,"wishes",id)); return; }
+    this.wishes=this.wishes.filter(x=>x.id!==id); this._saveLocal(); render();
+  },
+  _lsKey(){ return "staffelbar.wishes."+barId; },
+  _loadLocal(){ try{ this.wishes=JSON.parse(localStorage.getItem(this._lsKey())||"[]")||[]; }catch(_){ this.wishes=[]; } },
+  _saveLocal(){ try{ localStorage.setItem(this._lsKey(), JSON.stringify(this.wishes)); }catch(_){} }
+};
+
+/* ---- Eingabe ---- */
+let pickedCat = "";
+function renderCatPick(){
+  $("#catPick").innerHTML = CATS.map(c =>
+    '<button class="chip'+(c===pickedCat?" on":"")+'" data-cat="'+esc(c)+'">'+esc(c)+'</button>').join("");
+}
+$("#catPick").addEventListener("click", e=>{ const b=e.target.closest(".chip"); if(!b)return;
+  pickedCat = (pickedCat===b.dataset.cat) ? "" : b.dataset.cat; renderCatPick(); });
+
+$("#wAdd").addEventListener("click", async ()=>{
+  const text=$("#wText").value.trim();
+  if(!text) return toast("Bitte einen Wunsch eintippen");
+  const who=$("#wWho").value.trim();
+  const btn=$("#wAdd"); btn.disabled=true; btn.textContent="Speichern…";
+  try{
+    await store.add({ text, who, cat:pickedCat, votes:0, done:false,
+      at:new Date().toISOString(), dev:deviceId() });
+    $("#wText").value=""; pickedCat=""; renderCatPick();
+    toast("Wunsch hinzugefügt");
+  }catch(e){ console.error(e); toast("Konnte nicht speichern"); }
+  btn.disabled=false; btn.textContent="Wunsch hinzufügen";
+});
+
+/* ---- Filter ---- */
+let filterCat = "";
+function renderFilter(){
+  const cats = Array.from(new Set(store.wishes.map(w=>w.cat).filter(Boolean)));
+  const items = [{v:"",l:"Alle"}].concat(CATS.filter(c=>cats.includes(c)).map(c=>({v:c,l:c})));
+  $("#catFilter").innerHTML = items.map(it=>
+    '<button class="chip'+(it.v===filterCat?" on":"")+'" data-f="'+esc(it.v)+'">'+esc(it.l)+'</button>').join("");
+  $("#catFilter").classList.toggle("hide", cats.length===0);
+}
+$("#catFilter").addEventListener("click", e=>{ const b=e.target.closest(".chip"); if(!b)return;
+  filterCat=b.dataset.f; render(); });
+
+/* ---- Liste ---- */
+function wishRow(w){
+  const mine = myVotes()[w.id];
+  const who = w.who ? esc(w.who) : "anonym";
+  const sub = who + " · " + esc(relTime(w.at)) + (w.doneAt ? " · erledigt "+esc(relTime(w.doneAt)) : "");
+  const ownDev = w.dev && w.dev === deviceId();
+  return '<div class="wish'+(w.done?" done":"")+'" data-id="'+esc(w.id)+'">'+
+    (w.done ? '' :
+      '<button class="vote'+(mine?" on":"")+'" data-act="vote" aria-label="Ich auch"><b>'+num(w.votes,0)+'</b><span>Ich auch</span></button>') +
+    '<div class="w-main">'+
+      '<div class="w-text">'+(w.cat?'<span class="w-cat">'+esc(w.cat)+'</span>':'')+esc(w.text)+'</div>'+
+      '<div class="w-sub">'+sub+(w.done?'':' · '+num(w.votes,0)+' Stimme'+(num(w.votes,0)===1?'':'n'))+'</div>'+
+      '<div class="w-acts">'+
+        (w.done
+          ? '<button class="mini" data-act="reopen">Wieder öffnen</button>'
+          : '<button class="mini" data-act="done">Erledigt / besorgt</button>')+
+        (ownDev ? '<button class="mini" data-act="del">Löschen</button>' : '')+
+      '</div>'+
+    '</div></div>';
+}
+function render(){
+  renderDot(); renderCatPick(); renderFilter();
+  let list = store.wishes.slice();
+  if(filterCat) list = list.filter(w=>w.cat===filterCat);
+  const open = list.filter(w=>!w.done).sort((a,b)=> num(b.votes)-num(a.votes) || String(b.at).localeCompare(String(a.at)));
+  const done = list.filter(w=>w.done).sort((a,b)=> String(b.doneAt||b.at).localeCompare(String(a.doneAt||a.at)));
+
+  $("#openWishes").innerHTML = open.length ? open.map(wishRow).join("")
+    : '<div class="empty">'+(store.wishes.length?'Für diesen Filter gibt es keine offenen Wünsche.'
+        :'Noch keine Wünsche. Trag den ersten oben ein.')+'</div>';
+  $("#doneTitle").classList.toggle("hide", done.length===0);
+  $("#doneCount").textContent = done.length ? "("+done.length+")" : "";
+  $("#doneWishes").innerHTML = done.map(wishRow).join("");
+
+  const total = store.wishes.length, offen = store.wishes.filter(w=>!w.done).length;
+  $("#foot").textContent = total ? (offen+" offen · "+(total-offen)+" erledigt · Datenraum "+barId) : "";
+}
+function renderDot(){
+  const d=$("#dot");
+  d.className = "dot " + (store.status==="connecting" ? "off"
+    : store.mode==="firebase" ? (store.status==="online"?"on":store.status==="offline"?"off":"err")
+    : (store.status==="error"?"err":"off"));
+  $("#sub").textContent = store.status==="connecting" ? "verbinde…"
+    : store.mode==="firebase" ? (store.status==="online"?"geteilt für alle · "+barId:"offline – wird übertragen")
+    : (store.status==="error" ? "nur dieses Gerät" : "nur dieses Gerät");
+}
+
+/* ---- Aktionen an den Wünschen ---- */
+document.addEventListener("click", async e=>{
+  const btn=e.target.closest("[data-act]"); if(!btn) return;
+  const row=e.target.closest(".wish"); if(!row) return;
+  const id=row.dataset.id; const w=store.wishes.find(x=>x.id===id); if(!w) return;
+  const act=btn.dataset.act;
+  try{
+    if(act==="vote"){
+      const on=!myVotes()[id];
+      setMyVote(id,on);
+      await store.update(id,{ votes: Math.max(0, num(w.votes,0)+(on?1:-1)) });
+    } else if(act==="done"){
+      await store.update(id,{ done:true, doneAt:new Date().toISOString() });
+      toast("Als erledigt markiert");
+    } else if(act==="reopen"){
+      await store.update(id,{ done:false, doneAt:null });
+    } else if(act==="del"){
+      if(!confirm("Diesen Wunsch löschen?")) return;
+      await store.remove(id); toast("Gelöscht");
+    }
+  }catch(err){ console.error(err); toast("Aktion fehlgeschlagen"); }
+});
+
+window.addEventListener("online", ()=>{ if(store.mode==="firebase"){ store.status="online"; renderDot(); } });
+window.addEventListener("offline", ()=>{ if(store.mode==="firebase"){ store.status="offline"; renderDot(); } });
+
+/* Link zurück zur App mit demselben Datenraum */
+if(barId !== DEFAULT_BAR_ID) $("#back").href = "./?bar=" + encodeURIComponent(barId);
+
+renderCatPick(); render(); store.connect();
+</script>
+</body>
+</html>

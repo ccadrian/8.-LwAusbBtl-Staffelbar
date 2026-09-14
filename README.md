@@ -9,6 +9,7 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 | Datei | Zweck |
 |---|---|
 | `index.html` | das komplette Tool |
+| `wünsche.html` | Wunschliste (eigene Seite, gleiche Firebase); `wuensche.html` ist die gleiche Kopie ohne Umlaut in der Adresse |
 | `setup.mjs` | richtet Firebase automatisch ein (ein Befehl) |
 | `firestore.rules` | Zugriffsregeln |
 | `firebase.json` | Projektdatei für das Deployment der Regeln |
@@ -39,6 +40,7 @@ ohne Anmeldung direkt per QR-Code nutzbar.
 | **Erinnerung** | „Bald nachkaufen“ steht ganz oben auf der Startseite, sortiert nach Dringlichkeit – im Klartext: „nur noch 1 Kasten im Lager“. |
 | **Kassen-Soll** | Optional (unter **Mehr → Einstellungen** an-/ausschaltbar). Ist es an, zeigt die App nach jeder Zählung und im Protokoll, wie viel Geld in der Kasse sein müsste: Verbrauch seit der letzten Zählung × Preis je Getränk (einheitlich, Standard 1,50 €, einstellbar). Nur eine Orientierung – Freigetränke, Bruch und Rabatte sind nicht berücksichtigt. Die Einstellung gilt für die ganze Bar. |
 | **Kassensturz** | Wenn das Kassen-Soll an ist: nach jeder Zählung (Knopf „Kasse zählen") über einen großen Euro-Zahlenblock nur das **Bargeld** eingeben. Die App meldet **keinen Fehlbetrag**, sondern weist aus, wie viel bargeldlos lief: „alles bar bezahlt" oder „15,00 € liefen bargeldlos (PayPal/Karte)". So muss der Zählende den PayPal-Umsatz nicht kennen. Jeder Kassensturz hängt an seiner Zählung und ist im Protokoll nachschlagbar (dort auch wiederholbar). |
+| **Wünsche** | Eigene Seite `wünsche.html` (aus der App unter **Mehr → Wünsche** erreichbar). Jeder kann eintragen, was in die Bar soll – neue Getränke, Snacks, Deko, Reparaturen, Ideen für die Zukunft. Kategorie wählbar, mit „Ich auch"-Abstimmung, sodass die beliebtesten oben stehen; erledigte lassen sich abhaken. Geteilt über dieselbe Firebase (Sammlung `wishes`), ohne Login. |
 | **Warnschwelle** | Unter **Mehr → Einstellungen** einstellbar, ab wie vielen Kästen ein Getränk als knapp gilt (Standard: 1 Kasten). Dazu wie bisher die Reichweite in Tagen. Beide Schwellen gelten für die **ganze Bar**, nicht nur für das Telefon, auf dem sie gesetzt wurden. |
 | **Verwalten** | Getränke anlegen, bearbeiten, löschen; Export als CSV und JSON; JSON-Backup einspielen. |
 | **Wer hat was gemacht?** | Jedes Gerät bekommt beim ersten Öffnen automatisch eine Kennung; dazu kommt, was der Browser von selbst verrät – Modell (Android nennt z. B. „Pixel 8“ oder „Samsung SM-S911B“, iPhones sagen nur „iPhone“), Betriebssystem, Browser und die öffentliche IP. Niemand muss etwas eintippen. Zählungen und Einkäufe tragen diesen Stempel, und im **versteckten Verwaltungsbereich** (fünfmal auf die Versionszeile in *Mehr* tippen, dann Master-Code) steht Eintrag für Eintrag, welches Gerät wann was gemacht hat. Nachvollziehbarkeit unter Kollegen, keine Beweissicherung: Die IP ist im selben WLAN für alle gleich, und die Datenbank ist offen. Die IP kommt von `api.ipify.org` und darf fehlen. |

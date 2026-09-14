@@ -42,7 +42,7 @@ header.top{position:sticky;top:0;z-index:40;background:var(--bg);
 .dot.err{background:transparent;box-shadow:inset 0 0 0 4px var(--fg)}
 .back{width:36px;height:36px;border-radius:9px;border:1px solid var(--line-2);color:var(--fg-dim);
   display:grid;place-items:center;flex:none;text-decoration:none;font-size:18px}
-.intro{color:var(--fg-dim);font-size:14px;margin:18px 0 14px;line-height:1.55}
+.intro{color:var(--fg);font-size:18px;font-weight:450;margin:22px 0 18px;line-height:1.45;letter-spacing:-.015em}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:12px}
 label.fld>span{display:block;font-size:12.5px;font-weight:500;color:var(--fg-dim);margin-bottom:7px}
 input[type=text],textarea{width:100%;min-height:48px;padding:12px 14px;border-radius:var(--r-sm);
@@ -98,12 +98,11 @@ textarea{min-height:64px;resize:vertical}
   <div class="top-in">
     <div class="brand">Wünsche <small id="sub">Was fehlt? Was wünscht ihr euch?</small></div>
     <div class="dot" id="dot" title="Verbindung"></div>
-    <a class="back" id="back" href="./" title="Zurück zur App" aria-label="Zurück">&#8592;</a>
   </div>
 </header>
 
 <main class="wrap">
-  <div class="intro">Trag ein, was in die Bar soll – neue Getränke, Snacks, Deko, kaputte Sachen, Ideen für die Zukunft. Jeder kann etwas hinzufügen und bei anderen Wünschen auf <b>„Ich auch"</b> tippen, damit die beliebtesten oben stehen.</div>
+  <div class="intro">Trag ein, was in die Bar soll – neue Getränke, Snacks, Ideen für die Zukunft. Bei Wünschen anderer auf <b>„Ich auch"</b> tippen, damit die beliebtesten oben stehen.</div>
 
   <div class="card">
     <label class="fld"><span>Wunsch</span>
@@ -331,9 +330,6 @@ document.addEventListener("click", async e=>{
 
 window.addEventListener("online", ()=>{ if(store.mode==="firebase"){ store.status="online"; renderDot(); } });
 window.addEventListener("offline", ()=>{ if(store.mode==="firebase"){ store.status="offline"; renderDot(); } });
-
-/* Link zurück zur App mit demselben Datenraum */
-if(barId !== DEFAULT_BAR_ID) $("#back").href = "./?bar=" + encodeURIComponent(barId);
 
 renderCatPick(); render(); store.connect();
 </script>

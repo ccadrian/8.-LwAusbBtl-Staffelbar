@@ -91,6 +91,15 @@ textarea{min-height:64px;resize:vertical}
   background:var(--fg);color:var(--bg);padding:11px 18px;border-radius:9px;font-weight:500;font-size:14px;
   box-shadow:0 8px 26px rgba(0,0,0,.22);max-width:90vw;text-align:center}
 .foot{text-align:center;color:var(--fg-faint);font-size:11.5px;padding:22px 0 8px}
+.adminbar{text-align:center;padding:4px 0 24px}
+.adminlink{font-size:12.5px;color:var(--fg-faint);border:1px solid transparent;padding:7px 12px;border-radius:8px;font-weight:550}
+.adminlink.on{color:var(--fg);border-color:var(--line-2)}
+.modal{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.34);display:flex;align-items:flex-end;
+  justify-content:center;backdrop-filter:blur(2px)}
+.sheet{width:100%;max-width:520px;background:var(--bg);border-top:1px solid var(--line);
+  border-radius:1.25rem 1.25rem 0 0;padding:20px 18px calc(18px + var(--safe-b));max-height:92vh;overflow-y:auto}
+.sheet h3{margin-bottom:4px}
+.sheet .hint{color:var(--fg-dim);font-size:13.5px;line-height:1.5;margin:4px 0 14px}
 </style>
 </head>
 <body>
@@ -124,9 +133,11 @@ textarea{min-height:64px;resize:vertical}
   <div id="doneWishes"></div>
 
   <div class="foot" id="foot"></div>
+  <div class="adminbar"><button class="adminlink" id="adminToggle">Verwalten</button></div>
 </main>
 
 <div id="toastRoot"></div>
+<div id="modalRoot"></div>
 
 <script>
 /* =====================================================================
@@ -176,6 +187,71 @@ const VOTE_KEY = "staffelbar.myvotes." + barId;
 function myVotes(){ try{ return JSON.parse(localStorage.getItem(VOTE_KEY)||"{}")||{}; }catch(_){ return {}; } }
 function setMyVote(id,on){ const m=myVotes(); if(on)m[id]=1; else delete m[id];
   try{ localStorage.setItem(VOTE_KEY,JSON.stringify(m)); }catch(_){} }
+
+/* ---- Admin ----
+   Bearbeiten und Löschen nur mit dem Verwaltungs-Code. Es ist derselbe
+   Verwaltungs-Code (als Hash hinterlegt, nicht im Klartext). Die
+   Freischaltung merkt sich nur dieses Gerät (localStorage).
+   Hinweis: Das blendet die Knöpfe für normale Besucher aus. Weil die
+   Datenbank ohne Login offen ist, ist es Abschirmung, keine harte Sperre –
+   echte Durchsetzung bräuchte Firebase App Check / Anmeldung (siehe README). */
+const ADMIN_HASH = "c339bbeb99b16155e3ae8d8cbbcce2a10e7693f6e51c7b8012e224e88970c8c8";
+const ADMIN_KEY = "staffelbar.wishadmin";
+async function pinHash(pin){
+  const txt = "staffelbar:" + String(pin == null ? "" : pin).trim();
+  try{
+    if(crypto.subtle && crypto.subtle.digest){
+      const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(txt));
+      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    }
+  }catch(_){}
+  let h=5381; for(let i=0;i<txt.length;i++) h=((h*33)^txt.charCodeAt(i))>>>0;
+  return "x"+h.toString(16);
+}
+function isAdmin(){ try{ return localStorage.getItem(ADMIN_KEY)===ADMIN_HASH && !!ADMIN_HASH; }catch(_){ return false; } }
+function setAdmin(on){ try{ if(on) localStorage.setItem(ADMIN_KEY,ADMIN_HASH); else localStorage.removeItem(ADMIN_KEY); }catch(_){} }
+
+function modal(html,onMount){ closeModal();
+  const r=$("#modalRoot");
+  r.innerHTML='<div class="modal" id="mBg"><div class="sheet">'+html+'</div></div>';
+  $("#mBg").addEventListener("click",e=>{ if(e.target.id==="mBg") closeModal(); });
+  document.body.style.overflow="hidden"; if(onMount) onMount(r);
+}
+function closeModal(){ $("#modalRoot").innerHTML=""; document.body.style.overflow=""; }
+
+function adminPrompt(){
+  modal('<h3>Verwalten</h3>'+
+    '<div class="hint">Nur für Admins. Mit dem Verwaltungs-Code lassen sich Wünsche bearbeiten und löschen – </div>'+
+    '<label class="fld"><span>Code</span><input type="password" id="aCode" inputmode="numeric" autocomplete="off" placeholder="Verwaltungs-Code"></label>'+
+    '<button class="btn primary block" id="aOk" style="margin-top:4px">Freischalten</button>'+
+    '<button class="btn block" id="aNo" style="margin-top:8px">Abbrechen</button>',
+    r=>{ const inp=$("#aCode",r); inp.focus();
+      $("#aNo",r).onclick=closeModal;
+      const go=async()=>{ const v=inp.value.trim();
+        if(v && (v===ADMIN_HASH || (await pinHash(v))===ADMIN_HASH)){ setAdmin(true); closeModal(); render(); toast("Admin-Modus an"); }
+        else toast("Code stimmt nicht"); };
+      $("#aOk",r).onclick=go;
+      inp.addEventListener("keydown",e=>{ if(e.key==="Enter") go(); });
+    });
+}
+
+function editWish(w){
+  if(!isAdmin()) return;
+  let cat=w.cat||"";
+  const chips=()=>CATS.map(c=>'<button type="button" class="chip'+(c===cat?" on":"")+'" data-c="'+esc(c)+'">'+esc(c)+'</button>').join("");
+  modal('<h3>Wunsch bearbeiten</h3>'+
+    '<label class="fld" style="margin-top:12px"><span>Wunsch</span><textarea id="eText" maxlength="280">'+esc(w.text)+'</textarea></label>'+
+    '<div class="chips" id="eCats" style="margin-bottom:14px">'+chips()+'</div>'+
+    '<button class="btn primary block" id="eOk">Speichern</button>'+
+    '<button class="btn block" id="eNo" style="margin-top:8px">Abbrechen</button>',
+    r=>{ $("#eText",r).focus();
+      $("#eCats",r).addEventListener("click",ev=>{ const b=ev.target.closest(".chip"); if(!b)return;
+        cat=(cat===b.dataset.c)?"":b.dataset.c; $("#eCats",r).innerHTML=chips(); });
+      $("#eNo",r).onclick=closeModal;
+      $("#eOk",r).onclick=async()=>{ const text=$("#eText",r).value.trim(); if(!text) return toast("Text fehlt");
+        try{ await store.update(w.id,{text,cat}); closeModal(); toast("Gespeichert"); }catch(_){ toast("Konnte nicht speichern"); } };
+    });
+}
 
 /* ---- Datenspeicher: Firestore, sonst lokal ---- */
 const store = {
@@ -263,19 +339,20 @@ function wishRow(w){
   const mine = myVotes()[w.id];
   const who = w.who ? esc(w.who) : "anonym";
   const sub = who + " · " + esc(relTime(w.at)) + (w.doneAt ? " · erledigt "+esc(relTime(w.doneAt)) : "");
-  const ownDev = w.dev && w.dev === deviceId();
+  const admin = isAdmin();
   return '<div class="wish'+(w.done?" done":"")+'" data-id="'+esc(w.id)+'">'+
     (w.done ? '' :
       '<button class="vote'+(mine?" on":"")+'" data-act="vote" aria-label="Ich auch"><b>'+num(w.votes,0)+'</b><span>Ich auch</span></button>') +
     '<div class="w-main">'+
       '<div class="w-text">'+(w.cat?'<span class="w-cat">'+esc(w.cat)+'</span>':'')+esc(w.text)+'</div>'+
       '<div class="w-sub">'+sub+(w.done?'':' · '+num(w.votes,0)+' Stimme'+(num(w.votes,0)===1?'':'n'))+'</div>'+
-      '<div class="w-acts">'+
+      (admin ? '<div class="w-acts">'+
         (w.done
           ? '<button class="mini" data-act="reopen">Wieder öffnen</button>'
           : '<button class="mini" data-act="done">Erledigt / besorgt</button>')+
-        (ownDev ? '<button class="mini" data-act="del">Löschen</button>' : '')+
-      '</div>'+
+        '<button class="mini" data-act="edit">Bearbeiten</button>'+
+        '<button class="mini" data-act="del">Löschen</button>'+
+      '</div>' : '')+
     '</div></div>';
 }
 function render(){
@@ -294,6 +371,7 @@ function render(){
 
   const total = store.wishes.length, offen = store.wishes.filter(w=>!w.done).length;
   $("#foot").textContent = total ? (offen+" offen · "+(total-offen)+" erledigt · Datenraum "+barId) : "";
+  const at=$("#adminToggle"); if(at){ at.textContent = isAdmin()?"Admin-Modus · abmelden":"Verwalten"; at.classList.toggle("on", isAdmin()); }
 }
 function renderDot(){
   const d=$("#dot");
@@ -316,17 +394,26 @@ document.addEventListener("click", async e=>{
       const on=!myVotes()[id];
       setMyVote(id,on);
       await store.update(id,{ votes: Math.max(0, num(w.votes,0)+(on?1:-1)) });
-    } else if(act==="done"){
+      return;
+    }
+    /* alles Weitere ist Verwaltung – nur für Admins */
+    if(!isAdmin()){ toast("Nur Admins können das"); return; }
+    if(act==="done"){
       await store.update(id,{ done:true, doneAt:new Date().toISOString() });
       toast("Als erledigt markiert");
     } else if(act==="reopen"){
       await store.update(id,{ done:false, doneAt:null });
+    } else if(act==="edit"){
+      editWish(w);
     } else if(act==="del"){
-      if(!confirm("Diesen Wunsch löschen?")) return;
+      if(!confirm("Diesen Wunsch endgültig löschen?")) return;
       await store.remove(id); toast("Gelöscht");
     }
   }catch(err){ console.error(err); toast("Aktion fehlgeschlagen"); }
 });
+
+document.addEventListener("click", e=>{ const t=e.target.closest("#adminToggle"); if(!t) return;
+  if(isAdmin()){ setAdmin(false); render(); toast("Admin-Modus aus"); } else adminPrompt(); });
 
 window.addEventListener("online", ()=>{ if(store.mode==="firebase"){ store.status="online"; renderDot(); } });
 window.addEventListener("offline", ()=>{ if(store.mode==="firebase"){ store.status="offline"; renderDot(); } });

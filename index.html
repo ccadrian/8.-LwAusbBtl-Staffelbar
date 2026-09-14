@@ -619,6 +619,16 @@ details.fold .fold-in{padding:0 1.125rem 1.125rem}
   .srow .s-name,.buyrow .b-name{font-size:1rem}
   .buyrow .b-step .b-pm{width:2.75rem}
 }
+/* Wunschliste im Overlay – öffnet in der App, damit man auch als installierte
+   PWA (ohne Safari-Leiste) immer wieder herauskommt. */
+.wish-overlay{position:fixed;inset:0;z-index:500;background:var(--bg);display:flex;flex-direction:column}
+.wish-ov-top{display:flex;align-items:center;gap:0.625rem;flex:none;
+  padding:calc(0.625rem + env(safe-area-inset-top,0)) 1rem 0.625rem;border-bottom:1px solid var(--line)}
+.wish-ov-top .t{flex:1;font-size:1.0625rem;font-weight:600;letter-spacing:-.02em}
+.wish-ov-close{min-width:2.75rem;height:2.75rem;padding:0 0.875rem;border-radius:0.75rem;border:1px solid var(--line-2);
+  color:var(--fg);display:inline-flex;align-items:center;gap:0.375rem;font-size:0.9375rem;font-weight:550}
+.wish-ov-close:active{background:var(--card-2)}
+.wish-overlay iframe{flex:1;width:100%;border:0;display:block}
 </style>
 </head>
 <body>
@@ -735,9 +745,8 @@ details.fold .fold-in{padding:0 1.125rem 1.125rem}
   <section class="view hide" id="v-more">
 
     <div class="section-title">Wünsche</div>
-    <a class="btn primary block" id="wishLink" href="./wünsche.html" target="_blank" rel="noopener" style="text-decoration:none">Wunschliste öffnen &rarr;</a>
+    <button class="btn primary block" id="wishOpen">Wunschliste öffnen &rarr;</button>
     <button class="btn block" id="wishCopy" style="margin-top:8px">Link zum Weitergeben kopieren</button>
-    <div class="small faint" style="margin:8px 2px 0">Jeder kann Wünsche eintragen und abstimmen – auch ohne Zugang zur App. Den kopierten Link an alle schicken oder als QR aushängen. Bearbeiten und Löschen nur mit Admin-Code.</div>
 
     <div class="section-title">Einstellungen</div>
     <div class="card">
@@ -940,7 +949,7 @@ const DEFAULT_BAR_ID = "staffelbar";
    Getränk selbst, und eine 0 dort heißt "gibt es nur einzeln". */
 const DEFAULT_PACK_SIZE = 20;
 
-const APP_VERSION = "1.7";
+const APP_VERSION = "1.8";
 const SDK = "https://www.gstatic.com/firebasejs/10.13.2/";
 
 /* ---------------------------------------------------------------------
@@ -4750,9 +4759,6 @@ function shareUrl(){
 }
 
 function renderMore(){
-  const wishBar = (settings.barId && settings.barId !== DEFAULT_BAR_ID) ? "?bar=" + encodeURIComponent(settings.barId) : "";
-  const wl = document.getElementById("wishLink");
-  if (wl) wl.href = "./wünsche.html" + wishBar;
   const url = shareUrl();
   $("#qrUrl").textContent = url;
   try { $("#qrbox").innerHTML = QR.svg(url, 250); }
@@ -4957,6 +4963,26 @@ function wishShareUrl(){
     return u.toString();
   } catch(_){ return location.origin + "/wuensche.html"; }
 }
+function openWishes(){
+  const bar = (settings.barId && settings.barId !== DEFAULT_BAR_ID) ? "?bar=" + encodeURIComponent(settings.barId) : "";
+  const ov = document.createElement("div");
+  ov.className = "wish-overlay"; ov.id = "wishOverlay";
+  ov.innerHTML =
+    '<div class="wish-ov-top"><div class="t">Wünsche</div>' +
+      '<button class="wish-ov-close" id="wishOvClose" aria-label="Schließen">&#10005; Schließen</button></div>' +
+    '<iframe src="./wünsche.html' + bar + '" title="Wünsche"></iframe>';
+  document.body.appendChild(ov);
+  document.body.style.overflow = "hidden";
+  const close = () => { const o = document.getElementById("wishOverlay"); if (o) o.remove(); document.body.style.overflow = ""; };
+  document.getElementById("wishOvClose").onclick = close;
+  /* Zurück-Geste / Hardware-Zurück schließt das Overlay, statt die App zu verlassen */
+  history.pushState({ wishOv: 1 }, "");
+  const onPop = () => { close(); window.removeEventListener("popstate", onPop); };
+  window.addEventListener("popstate", onPop);
+}
+const wishOpenBtn = document.getElementById("wishOpen");
+if (wishOpenBtn) wishOpenBtn.addEventListener("click", openWishes);
+
 const wishCopyBtn = document.getElementById("wishCopy");
 if (wishCopyBtn) wishCopyBtn.addEventListener("click", async () => {
   const url = wishShareUrl();

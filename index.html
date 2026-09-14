@@ -472,8 +472,16 @@ nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:50;
   box-shadow:0 0 0 125rem rgba(0,0,0,.45)}
 .scan-guide::after{content:"";position:absolute;left:6%;right:6%;top:50%;height:0.125rem;background:rgba(255,80,80,.85)}
 .scan-msg{flex:none;text-align:center;font-size:0.9375rem;padding:0.875rem 0.5rem 0.375rem;color:rgba(255,255,255,.85);min-height:2.75rem}
-.scan-foot{flex:none}
+.scan-foot{flex:none;display:flex;flex-direction:column;gap:0.5rem}
 .scan-foot .btn{border-color:rgba(255,255,255,.35);color:#fff}
+.scan-foot .btn.on{background:#fff;color:#000;border-color:#fff}
+/* Taschenlampe als eigener Knopf im oberen Balken, nur wenn das Gerät sie kann */
+.scan-torch{width:2.625rem;height:2.625rem;border-radius:0.8125rem;border:0.0625rem solid rgba(255,255,255,.35);
+  color:#fff;display:none;place-items:center;flex:none;background:transparent}
+.scan-torch.avail{display:grid}
+.scan-torch.on{background:#fff;color:#000;border-color:#fff}
+.scan-hint{position:absolute;left:0;right:0;bottom:0.5rem;text-align:center;font-size:0.75rem;
+  color:rgba(255,255,255,.7);pointer-events:none}
 
 /* ---------- Sperrbildschirm ---------- */
 .lock{position:fixed;inset:0;z-index:300;background:var(--bg);display:flex;
@@ -1418,8 +1426,11 @@ async function scanSheet(onCode, opts){
   box.id = "scanOverlay"; box.className = "scan";
   box.innerHTML =
     '<div class="scan-top"><div class="scan-title">' + esc(opts.title || "Barcode scannen") + '</div>' +
+      '<button class="scan-torch" id="scanTorch" aria-label="Licht an/aus" title="Licht">' +
+        '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l-1 7h3l-8 11 2-8H8z"/></svg></button>' +
       '<button class="scan-x" data-act="cancel" aria-label="Abbrechen">&#10005;</button></div>' +
-    '<div class="scan-view"><video playsinline autoplay muted></video><div class="scan-guide"></div></div>' +
+    '<div class="scan-view"><video playsinline autoplay muted></video><div class="scan-guide"></div>' +
+      '<div class="scan-hint" id="scanHint"></div></div>' +
     '<div class="scan-msg" id="scanMsg">Kamera wird gestartet…</div>' +
     '<div class="scan-foot">' +
       '<button class="btn ghost block" data-act="manual">Code von Hand eingeben</button>' +
@@ -1457,7 +1468,13 @@ async function scanSheet(onCode, opts){
   }
   try {
     scanStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 }, height: { ideal: 1080 },
+        // Nicht-Standard, wird ignoriert wo unbekannt – hilft aber auf vielen
+        // Android-Geräten, den Fokus gar nicht erst umherwandern zu lassen.
+        focusMode: "continuous", advanced: [{ focusMode: "continuous" }]
+      }, audio: false });
     video.srcObject = scanStream;
     await video.play();
   } catch(err){
@@ -1466,6 +1483,35 @@ async function scanSheet(onCode, opts){
     return;
   }
   msg.textContent = "Strichcode in den Rahmen halten";
+
+  /* Kamera scharf und ruhig stellen – das ist der häufigste Grund, warum ein
+     Code erst nach Sekunden sitzt: Fokus wandert oder es ist zu dunkel. */
+  const track = scanStream.getVideoTracks()[0];
+  const caps = (track && track.getCapabilities) ? (track.getCapabilities() || {}) : {};
+  const applyAdv = adv => { try { return track.applyConstraints({ advanced: adv }); } catch(_){ return Promise.resolve(); } };
+  if (caps.focusMode && caps.focusMode.includes("continuous")) applyAdv([{ focusMode: "continuous" }]);
+
+  /* Taschenlampe: in der Bar ist es dämmrig, mit Licht liest der Erkenner
+     sofort. Knopf erscheint nur, wenn das Gerät die Lampe steuern lässt. */
+  let torchOn = false;
+  const torchBtn = $("#scanTorch");
+  if (caps.torch && torchBtn){
+    torchBtn.classList.add("avail");
+    torchBtn.addEventListener("click", async () => {
+      torchOn = !torchOn;
+      try { await track.applyConstraints({ advanced: [{ torch: torchOn }] }); torchBtn.classList.toggle("on", torchOn); }
+      catch(_){ torchOn = false; torchBtn.classList.remove("on"); }
+    });
+    const hint = $("#scanHint"); if (hint) hint.textContent = "Bei wenig Licht oben auf das Blitz-Symbol tippen";
+  }
+
+  /* Auf den Rahmen tippen stellt einmal gezielt scharf (wo unterstützt). */
+  if (caps.focusMode && (caps.focusMode.includes("single-shot") || caps.focusMode.includes("manual"))){
+    const vw = $(".scan-view"); if (vw) vw.addEventListener("click", async () => {
+      try { await track.applyConstraints({ advanced: [{ focusMode: "single-shot" }] });
+        await applyAdv([{ focusMode: "continuous" }]); } catch(_){}
+    });
+  }
 
   /* Eingebauter Erkenner, wenn vorhanden */
   let detector = null;
@@ -1479,17 +1525,26 @@ async function scanSheet(onCode, opts){
 
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  let last = "", hits = 0;
-  const tick = async () => {
+  /* Bildsynchron lesen, sobald ein neues Kamerabild da ist – statt starr alle
+     150 ms. Sitzt der Code scharf im Bild, wird er im nächsten Frame erkannt. */
+  const rVFC = typeof video.requestVideoFrameCallback === "function";
+  let last = "", hits = 0, busy = false;
+  const again = () => {
     if (done) return;
+    if (rVFC) video.requestVideoFrameCallback(() => tick());
+    else setTimeout(tick, detector ? 60 : 55);
+  };
+  const tick = async () => {
+    if (done || busy) return;
+    busy = true;
     try {
       let code = null;
       if (detector){
         const found = await detector.detect(video);
         if (found && found.length) code = found[0].rawValue;
       } else if (video.videoWidth){
-        /* nur den Streifen in der Mitte lesen – da liegt der Rahmen */
-        const w = Math.min(960, video.videoWidth), scale = w / video.videoWidth;
+        /* mittleren Streifen scharf abtasten – da liegt der Rahmen */
+        const w = Math.min(1280, video.videoWidth), scale = w / video.videoWidth;
         const h = Math.round(video.videoHeight * scale);
         canvas.width = w; canvas.height = h;
         ctx.drawImage(video, 0, 0, w, h);
@@ -1498,12 +1553,15 @@ async function scanSheet(onCode, opts){
       if (code){
         if (code === last) hits++; else { last = code; hits = 1; }
         msg.textContent = "Gelesen: " + code;
-        if (hits >= 2 || detector){ finish(code); return; }
+        /* Der eingebaute Erkenner ist zuverlässig – gleich übernehmen. Der
+           eigene Leser braucht zwei gleiche Treffer gegen Fehllesungen. */
+        if (hits >= 2 || detector){ if (navigator.vibrate) { try { navigator.vibrate(40); } catch(_){} } finish(code); return; }
       }
     } catch(_){}
-    setTimeout(tick, detector ? 150 : 90);
+    busy = false;
+    again();
   };
-  tick();
+  again();
 }
 
 /* Produktname zu einem Code aus Open Food Facts – frei, ohne Schlüssel,

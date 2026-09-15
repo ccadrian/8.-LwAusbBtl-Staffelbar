@@ -134,9 +134,9 @@ a{color:var(--fg)}
 .wrap{max-width:40rem;margin:0 auto;padding:0 1.125rem}
 header.top{
   position:sticky;top:0;z-index:40;
-  background:color-mix(in srgb,var(--bg) 86%,transparent);
-  backdrop-filter:saturate(180%) blur(1rem);
+  background:var(--bg);
   border-bottom:0.0625rem solid var(--line);
+  transform:translateZ(0);-webkit-transform:translateZ(0);
 }
 .top-in{max-width:40rem;margin:0 auto;padding:0.75rem 1.125rem;display:flex;align-items:center;gap:0.75rem}
 /* Als installierte App liegt der Inhalt unter der Statusleiste des Telefons */
@@ -445,9 +445,13 @@ body.counting{padding-bottom:0;overscroll-behavior:none}
 
 /* ---------- Tableiste ---------- */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:50;
-  background:color-mix(in srgb,var(--bg) 88%,transparent);
-  backdrop-filter:saturate(180%) blur(1rem);
-  border-top:0.0625rem solid var(--line);padding-bottom:var(--safe-b)}
+  /* deckend + eigene Compositor-Ebene: bleibt beim Scrollen ruhig.
+     Kein backdrop-filter – der zwingt iOS-Safari zum Neuberechnen pro
+     Scroll-Frame und lässt die feste Leiste springen. */
+  background:var(--bg);
+  border-top:0.0625rem solid var(--line);padding-bottom:var(--safe-b);
+  transform:translateZ(0);-webkit-transform:translateZ(0);
+  will-change:transform;backface-visibility:hidden}
 .tabs-in{max-width:40rem;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);
   padding:0.375rem 0.375rem 0.25rem}
 .tab{height:3.875rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.3125rem;
@@ -949,7 +953,7 @@ const DEFAULT_BAR_ID = "staffelbar";
    Getränk selbst, und eine 0 dort heißt "gibt es nur einzeln". */
 const DEFAULT_PACK_SIZE = 20;
 
-const APP_VERSION = "1.8";
+const APP_VERSION = "1.9";
 const SDK = "https://www.gstatic.com/firebasejs/10.13.2/";
 
 /* ---------------------------------------------------------------------
